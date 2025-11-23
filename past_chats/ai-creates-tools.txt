@@ -1,0 +1,232 @@
+Chat started. Press Ctrl+C to exit.
+Usage: 914 input tokens, 16 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"."}
+
+Usage: 1281 input tokens, 18 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"README.md"}
+
+Usage: 3298 input tokens, 16 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg"}
+
+Usage: 3592 input tokens, 18 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg/sdk"}
+
+Usage: 3796 input tokens, 20 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg/sdk/tools"}
+
+Usage: 4020 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/interface.go"}
+
+Usage: 4581 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/types.go"}
+
+Usage: 7557 input tokens, 24 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/bash.go"}
+
+Usage: 8632 input tokens, 24 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/rag.go"}
+
+Usage: 10955 input tokens, 18 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg/utils"}
+
+Usage: 11346 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/utils/http.go"}
+
+Usage: 14282 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go"}
+
+Usage: 17264 input tokens, 16 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"cmd"}
+
+Usage: 17563 input tokens, 20 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"cmd/add.go"}
+
+Usage: 18599 input tokens, 20 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"cmd/types.go"}
+
+Usage: 19472 input tokens, 549 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package tools\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n\n\t\"github.com/Shonei/agents/pkg/
+
+
+Yuou are about to create or overwrite the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/pkg/sdk/tools/fetch_url.go
+Do you want to continue? (y/N): y
+Usage: 20200 input tokens, 20 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"cmd/types.go"}
+
+Usage: 21051 input tokens, 549 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package cmd\n\nimport (\n\t\"github.com/Shonei/agents/cmd/config\"\n\t\"github.com/Shone
+
+
+You are about to create the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/cmd/types.go
+Do you want to continue? (y/N): y
+Usage: 21678 input tokens, 488 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package tools\n\nimport (\n\t\"bufio\"\n\t\"fmt\"\n\t\"os\"\n\n\t\"github.com/fatih/colo
+
+
+Yuou are about to create or overwrite the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/pkg/sdk/tools/ask_user.go
+Do you want to continue? (y/N): y
+Usage: 22350 input tokens, 558 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package cmd\n\nimport (\n\t\"github.com/Shonei/agents/cmd/config\"\n\t\"github.com/Shone
+
+
+You are about to create the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/cmd/types.go
+Do you want to continue? (y/N): y
+Usage: 22982 input tokens, 16 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ."}
+
+
+You are about to execute the following command:
+  go build .
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 23054 input tokens, 385 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package tools\n\nimport (\n\t\"fmt\"\n\t\"time\"\n)\n\n// TimeTool returns the current t
+
+
+Yuou are about to create or overwrite the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/pkg/sdk/tools/time.go
+Do you want to continue? (y/N): y
+Usage: 23597 input tokens, 566 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package cmd\n\nimport (\n\t\"github.com/Shonei/agents/cmd/config\"\n\t\"github.com/Shone
+
+
+You are about to create the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/cmd/types.go
+Do you want to continue? (y/N): y
+Usage: 24234 input tokens, 16 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ."}
+
+
+You are about to execute the following command:
+  go build .
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 24281 input tokens, 597 output tokens
+Assistant:
+  Based on the existing SDK structure and the goal of creating a general-
+  purpose local agent, I have implemented three new tools that significantly
+  expand the agent's capabilities:
+
+  1.  fetch_url : Allows the agent to retrieve content from the internet (e.g.,
+  documentation, articles).
+  2.  ask_user : Enables the agent to pause and ask you for clarification or
+  input during its execution loop.
+  3.  time : Gives the agent awareness of the current date and time.
+
+  I have also registered these tools in  cmd/types.go  so they are available
+  to be used by new agents.
+
+  ### Implemented Tools
+
+  #### 1. Fetch URL Tool
+
+  Located in  pkg/sdk/tools/fetch_url.go .
+
+  • Purpose: Fetches the raw text content of a given URL.
+  • Usage: Useful for "researcher" agents that need to look up external
+  documentation.
+  • Safety: Includes a truncation limit (approx. 100kb) to prevent context
+  window overflow.
+
+  #### 2. Ask User Tool
+
+  Located in  pkg/sdk/tools/ask_user.go .
+
+  • Purpose: Pauses execution to ask the user a question via the terminal.
+  • Usage: Critical for complex tasks where the agent might need to confirm a
+  destructive action or ask for missing information (e.g., "Which file did you
+  mean?").
+
+  #### 3. Time Tool
+
+  Located in  pkg/sdk/tools/time.go .
+
+  • Purpose: Returns the current system time.
+  • Usage: Models generally don't know "now". This helps when writing logs,
+  scheduling, or understanding time-relative instructions.
+
+  ### How to Use Them
+
+  You can now add an agent with these tools using the CLI:
+
+    agents agent add \
+      --name "assistant" \
+      --system-prompt "You are a helpful assistant." \
+      --model "claude-sonnet-4-5-20250929" \
+      --tools "fetch_url,ask_user,time,calculator"
+
+  ### Future Tool Ideas
+
+  Here are other tools that could be implemented in the future following the
+  same pattern:
+
+  •  git : A wrapper around  git  commands (status, diff, commit) for safer
+  version control management than raw  bash .
+  •  sql_client : A tool to execute SQL queries against a provided connection
+  string, allowing the agent to interact with databases directly.
+  •  image_view : Since the underlying models support vision, a tool that
+  takes a file path and returns the image data (base64) would allow the agent
+  to "see" screenshots or diagrams.
+
+
+> Nice. Update the README as well
+Usage: 22589 input tokens, 18 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"README.md"}
+
+Usage: 25494 input tokens, 1227 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"# Agents CLI\n\n`agents` is a command-line tool for managing and interacting with AI age
+
+
+You are about to create the following file:
+  /home/teodor/Documents/when-I-am-bored/go/agents/README.md
+Do you want to continue? (y/N): y
+Usage: 26777 input tokens, 136 output tokens
+Assistant:
+  I have updated the  README.md  to include the newly implemented tools (
+  fetch_url ,  ask_user ,  time ) and also added  rag  to the "Available
+  Tools" list for completeness.
+
+  ### Summary of Changes
+
+  • fetch_url: Documented as "Fetch content from a URL."
+  • ask_user: Documented as "Ask the user a question."
+  • time: Documented as "Get the current date and time."
+  • rag: Added to the main list as "Search information in your local code base.
+  "
+
+  The documentation now accurately reflects the full capabilities of the SDK.
+
+
+> c^C

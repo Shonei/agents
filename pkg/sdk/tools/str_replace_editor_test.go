@@ -38,7 +38,7 @@ func TestEditFile_replace(t *testing.T) {
 
 	path := filepath.Join(cwd, "testfiles/test.txt")
 
-	err = os.WriteFile(path, []byte(testContest), 0644)
+	err = os.WriteFile(path, []byte(testContest), 0o600)
 	if err != nil {
 		t.Errorf("failed to write test file: %v", err)
 	}
@@ -80,7 +80,7 @@ import (
 
 	path := filepath.Join(cwd, "testfiles/new_lines.txt")
 
-	err = os.WriteFile(path, []byte(testContent), 0644)
+	err = os.WriteFile(path, []byte(testContent), 0o600)
 	if err != nil {
 		t.Errorf("failed to write test file: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestEditFile_insert(t *testing.T) {
 
 	path := filepath.Join(cwd, "testfiles/insert.txt")
 
-	err = os.WriteFile(path, []byte(testContest), 0644)
+	err = os.WriteFile(path, []byte(testContest), 0o600)
 	if err != nil {
 		t.Errorf("failed to write test file: %v", err)
 	}

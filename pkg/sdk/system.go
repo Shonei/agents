@@ -7,8 +7,7 @@ import (
 
 // SystemPromptBuilder is a type passed to a go template that includes helper functions for building system prompts
 // it includes tools like time and cwd
-type SystemPromptBuilder struct {
-}
+type SystemPromptBuilder struct{}
 
 func (s *SystemPromptBuilder) Cwd() string {
 	cwd, err := os.Getwd()

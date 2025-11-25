@@ -16,4 +16,3 @@ func (r *RAG) Search(query string, k int) ([]storage.Document, error) {
 
 	return r.s.Search(vec, k)
 }
-

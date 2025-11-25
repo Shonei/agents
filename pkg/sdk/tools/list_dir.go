@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/Shonei/agents/pkg/sdk"
 )
 
 type ListDirTool struct{}
@@ -76,15 +78,16 @@ func (t *ListDirTool) Call(input map[string]interface{}) (interface{}, error) {
 
 	rootAbs, err := filepath.Abs(toolInput.Path)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve path: %w", err)
+		return "", sdk.NewAIError(fmt.Sprintf("failed to resolve path: %s", toolInput.Path)).WithReason(err)
 	}
 
 	info, err := os.Stat(rootAbs)
 	if err != nil {
 		return "", fmt.Errorf("failed to stat path: %w", err)
 	}
+
 	if !info.IsDir() {
-		return "", fmt.Errorf("path is not a directory: %s", rootAbs)
+		return "", sdk.NewAIError(fmt.Sprintf("path is not a directory: %s", rootAbs))
 	}
 
 	recursive := toolInput.Recursive
@@ -92,6 +95,7 @@ func (t *ListDirTool) Call(input map[string]interface{}) (interface{}, error) {
 	if maxDepth < 0 {
 		maxDepth = 0
 	}
+
 	if recursive && maxDepth == 0 {
 		maxDepth = defaultListDirMaxDepth
 	}

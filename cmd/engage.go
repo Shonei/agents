@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Shonei/agents/cmd/config"
 	"github.com/Shonei/agents/pkg/utils"
-	"github.com/spf13/cobra"
 )
 
 type engage struct {
@@ -73,6 +74,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 
 				tool.Init(toolName.Config)
 				ai.RegisterTool(tool)
+
 				break
 			}
 		}

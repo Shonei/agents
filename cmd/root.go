@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Shonei/agents/cmd/config"
 	"github.com/spf13/cobra"
+
+	"github.com/Shonei/agents/cmd/config"
 )
 
 var rootCmd = &cobra.Command{

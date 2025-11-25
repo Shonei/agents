@@ -50,6 +50,7 @@ func ToolNames() []string {
 	for _, tool := range Tools() {
 		names = append(names, tool.Name())
 	}
+
 	return names
 }
 
@@ -58,5 +59,6 @@ func ModelNames() []string {
 	for name := range Models() {
 		names = append(names, name)
 	}
+
 	return names
 }

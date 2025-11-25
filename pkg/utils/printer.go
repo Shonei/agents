@@ -29,6 +29,7 @@ func RegisterResource(resource any, headers []string) {
 func Print(resource any, format string) {
 	if resource == nil {
 		fmt.Println("<nil>")
+
 		return
 	}
 
@@ -40,6 +41,7 @@ func Print(resource any, format string) {
 		ln := v.Len()
 		if ln == 0 {
 			fmt.Println("(no items)")
+
 			return
 		}
 
@@ -78,6 +80,7 @@ func Print(resource any, format string) {
 			data, err := yaml.Marshal(val.Interface())
 			if err != nil {
 				fmt.Printf("(failed to marshal to YAML: %v)\n", err)
+
 				return
 			}
 
@@ -86,6 +89,7 @@ func Print(resource any, format string) {
 			data, err := json.Marshal(val.Interface())
 			if err != nil {
 				fmt.Printf("(failed to marshal to JSON: %v)\n", err)
+
 				return
 			}
 
@@ -117,6 +121,7 @@ func printYamlSlice(et reflect.Type, v reflect.Value) {
 	data, err := yaml.Marshal(yamlArray)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "(failed to marshal to YAML: %v)\n", err)
+
 		return
 	}
 
@@ -139,6 +144,7 @@ func printJsonSlice(et reflect.Type, v reflect.Value) {
 	data, err := json.Marshal(yamlArray)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "(failed to marshal to JSON: %v)\n", err)
+
 		return
 	}
 
@@ -151,21 +157,22 @@ func printTableSlice(et reflect.Type, v reflect.Value) {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 
-	w.Write([]byte(fmt.Sprintf("%s\n", strings.Join(headers, "\t"))))
+	fmt.Fprintf(w, "%s\n", strings.Join(headers, "\t"))
 
 	// prints a --- line after the headers
 	breaker := make([]string, 0, len(headers))
 	for i := range headers {
 		breaker = append(breaker, strings.Repeat("-", len(headers[i])))
 	}
-	w.Write([]byte(fmt.Sprintf("%s\n", strings.Join(breaker, "\t"))))
+	fmt.Fprintf(w, "%s\n", strings.Join(breaker, "\t"))
 
 	for i := 0; i < ln; i++ {
 		row := valueDeref(v.Index(i))
 		for _, h := range headers {
-			w.Write([]byte(fmt.Sprintf("%s\t", fieldAsString(row, h))))
+			fmt.Fprintf(w, "%s\t", fieldAsString(row, h))
 		}
-		w.Write([]byte("\n"))
+
+		w.Write([]byte("\n")) //nolint:errcheck
 	}
 
 	w.Flush()
@@ -191,6 +198,7 @@ func valueDeref(v reflect.Value) reflect.Value {
 	if v.IsValid() && v.Kind() == reflect.Ptr && !v.IsNil() {
 		return v.Elem()
 	}
+
 	return v
 }
 

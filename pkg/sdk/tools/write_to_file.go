@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
+
+	"github.com/Shonei/agents/pkg/utils"
 )
 
 // WriteToFileTool is a tool for creating files and write content to them
@@ -87,7 +89,7 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 	}
 
 	// Write the file
-	if err := os.WriteFile(toolInput.FilePath, []byte(toolInput.Content), 0o644); err != nil {
+	if err := os.WriteFile(toolInput.FilePath, []byte(toolInput.Content), 0o600); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -102,7 +104,6 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 func writeToFileAsk(filePath string, force bool) {
 	if force {
 		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create the following file:")
-
 	} else {
 		color.New(color.FgYellow, color.Bold).Println("\nYuou are about to create or overwrite the following file:")
 	}
@@ -112,7 +113,10 @@ func writeToFileAsk(filePath string, force bool) {
 	fmt.Print(color.New(color.Bold).Sprint("Do you want to continue? (y/N): "))
 
 	var answer string
-	fmt.Scanln(&answer)
+	_, err := fmt.Scanln(&answer)
+	if err != nil {
+		utils.NewExitError().WithMessage("failed to read user input").WithReason(err).Done()
+	}
 
 	if answer != "y" {
 		color.Red("user aborted")

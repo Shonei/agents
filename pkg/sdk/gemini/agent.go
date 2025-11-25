@@ -15,7 +15,7 @@ const (
 	// DefaultMaxTokens is the default maximum tokens for responses
 	DefaultMaxTokens = 8192
 	// EnvAPIKey is the environment variable name for the Gemini API key
-	EnvAPIKey = "GEMINI_API_KEY"
+	EnvAPIKey = "GEMINI_API_KEY" //nolint:gosec
 )
 
 type Agent struct {

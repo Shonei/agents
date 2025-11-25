@@ -16,8 +16,9 @@ type File struct {
 
 // CollectFiles walks the provided fullPath directory and returns files suitable for upload.
 // It respects .gitignore rules in that directory. If dryRun is true, file contents are omitted.
+// It explicitly ignored the .git directory.
 func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
-	var checker = gitignore.NewChecker()
+	checker := gitignore.NewChecker()
 
 	gitignorePath := filepath.Join(fullPath, ".gitignore")
 	if _, err := os.Stat(gitignorePath); err == nil {
@@ -44,11 +45,16 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 				if entry.IsDir() {
 					return filepath.SkipDir
 				}
+
 				return nil // skip this file
 			}
 		}
 
 		if entry.IsDir() {
+			if entry.Name() == ".git" {
+				return filepath.SkipDir
+			}
+
 			return nil
 		}
 
@@ -59,6 +65,7 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 
 		if dryRun {
 			files = append(files, File{Path: filepath.ToSlash(rel), Content: ""})
+
 			return nil
 		}
 
@@ -68,6 +75,7 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 		}
 
 		files = append(files, File{Path: filepath.ToSlash(rel), Content: string(b)})
+
 		return nil
 	})
 	if err != nil {

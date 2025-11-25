@@ -31,10 +31,12 @@ func Extract(s string) ([]Artifact, error) {
 //
 // You're absolutely right! I can see the issue - the travel-agent-upsert workflow is using...
 // <artefact name="travel-agent-upsert.json" contentType="application/json">
-// {
-//   "name": "travel-agent-upsert",
-//   "steps": []
-// }
+//
+//	{
+//	  "name": "travel-agent-upsert",
+//	  "steps": []
+//	}
+//
 // </artefact>
 //
 // Done !!
@@ -122,6 +124,7 @@ func (t *Tokenizer) artefact() (Artifact, error) {
 	for i := t.pos; i < len(t.input); i++ {
 		if t.input[i] == '>' {
 			t.pos = i + 1
+
 			return t.parseArtefact(string(t.input[startPos : i+1]))
 		}
 	}

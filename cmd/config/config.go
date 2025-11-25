@@ -7,13 +7,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Shonei/agents/pkg/utils"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Shonei/agents/pkg/utils"
 )
 
-var defaultConfigPath = "~/.agents/config.yaml"
-var configEnvOverwrite = "agents_CONFIG"
+var (
+	defaultConfigPath  = "~/.agents/config.yaml"
+	configEnvOverwrite = "agents_CONFIG"
+)
 
 func init() {
 	homeDir, _ := os.UserHomeDir()
@@ -99,6 +102,7 @@ func (c *ConfigFactory) GetAgent(name string) Agent {
 	if !ok {
 		utils.NewExitError().WithMessage(fmt.Sprintf("agent '%s' not found in config", name)).Done()
 	}
+
 	return agent
 }
 
@@ -107,6 +111,7 @@ func (c *ConfigFactory) GetAPIKey(agent Agent) string {
 		if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
 			return key
 		}
+
 		return c.Config.ClaudeAPIKey
 	}
 
@@ -121,6 +126,7 @@ func (c *ConfigFactory) GetGeminiAPIKey() string {
 	if key := os.Getenv("GEMINI_API_KEY"); key != "" {
 		return key
 	}
+
 	return c.Config.GeminiAPIKey
 }
 
@@ -130,12 +136,10 @@ func (c *ConfigFactory) SaveConfig() {
 		utils.NewExitError().WithMessage("failed to marshal CLI config").WithReason(err).Done()
 	}
 
-	err = os.WriteFile(c.configPath, b, os.ModePerm)
+	err = os.WriteFile(c.configPath, b, 0o600)
 	if err != nil {
 		utils.NewExitError().WithMessage("unable to persist CLI config").WithReason(err).Done()
 	}
-
-	return
 }
 
 func (c *ConfigFactory) Print(resource any) {
@@ -148,12 +152,12 @@ func readOrCreateConfig(configPath string) (*Config, error) {
 	b, err := os.ReadFile(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			createErr := os.MkdirAll(filepath.Dir(configPath), os.ModePerm)
+			createErr := os.MkdirAll(filepath.Dir(configPath), 0o600)
 			if createErr != nil {
 				return nil, fmt.Errorf("failed to create config directory: %v", createErr)
 			}
 
-			createErr = os.WriteFile(configPath, []byte{}, os.ModePerm)
+			createErr = os.WriteFile(configPath, []byte{}, 0o600)
 			if createErr != nil {
 				return nil, fmt.Errorf("failed to create config file: %v", createErr)
 			}

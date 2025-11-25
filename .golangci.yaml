@@ -1,0 +1,56 @@
+version: "2"
+run:
+linters:
+  enable:
+    - gosec
+    - nlreturn
+  disable:
+    - unused
+  settings:
+    gosec:
+      excludes:
+        - G601
+    unused:
+      field-writes-are-uses: false
+      post-statements-are-reads: true
+      exported-fields-are-used: true
+      parameters-are-used: true
+      local-variables-are-used: false
+      generated-is-used: true
+    wsl:
+      allow-assign-and-call: true
+      allow-assign-and-anything: true
+      allow-multiline-assign: true
+      allow-separated-leading-comment: true
+      allow-cuddle-declarations: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - wsl
+        path: _test\.go$
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/Shonei/agents)
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

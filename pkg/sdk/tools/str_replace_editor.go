@@ -67,19 +67,16 @@ type StrReplaceEditorToolInput struct {
 	Command string `json:"command"` // "str_replace" or "insert"
 	Path    string `json:"path"`
 
+	// new string to insert or replace with
+	NewStr1 string `json:"new_str"`
+
+	// string replacement params
 	OldStr1      string `json:"old_str"`
 	OldStrStart1 int    `json:"old_str_start_line_number"`
 	OldStrEnd1   int    `json:"old_str_end_line_number"`
 
-	NewStr1 string `json:"new_str"`
-
+	// insert params
 	InsertLine1 int `json:"insert_line"`
-}
-
-type editOp struct {
-	startIdx int
-	endIdx   int
-	text     string
 }
 
 func (t *StrReplaceEditorTool) Call(input map[string]interface{}) (interface{}, error) {
@@ -94,6 +91,10 @@ func (t *StrReplaceEditorTool) Call(input map[string]interface{}) (interface{}, 
 
 	if in.Path == "" {
 		return "Path is required.", nil
+	}
+
+	if strings.Count(in.NewStr1, "\n") > maxLinesPerEdit {
+		return fmt.Sprintf("New string exceeds %d line limit.", maxLinesPerEdit), nil
 	}
 
 	cwd, err := os.Getwd()
@@ -147,7 +148,7 @@ func (t *StrReplaceEditorTool) handleStrReplace(path, content string, pos []int,
 	}
 
 	if in.OldStrEnd1 < in.OldStrStart1 {
-		return fmt.Sprintf("end line before start line"), nil
+		return "end line before start line", nil
 	}
 
 	if in.OldStrEnd1 > totalLines {
@@ -160,16 +161,16 @@ func (t *StrReplaceEditorTool) handleStrReplace(path, content string, pos []int,
 
 	existing := content[pos[in.OldStrStart1-1]:pos[in.OldStrEnd1]]
 
-	if strings.TrimSpace(existing) != strings.TrimSpace(in.OldStr1) {
+	if !strings.Contains(existing, in.OldStr1) {
 		return fmt.Sprintf("content mismatch for lines %d-%d.\n\nFile content:\n%s", in.OldStrStart1, in.OldStrEnd1, existing), nil
 	}
 
 	var b strings.Builder
 	b.WriteString(content[:pos[in.OldStrStart1-1]])
-	b.WriteString(in.NewStr1)
+	b.WriteString(strings.ReplaceAll(existing, in.OldStr1, in.NewStr1))
 	b.WriteString(content[pos[in.OldStrEnd1]:])
 
-	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		return "", fmt.Errorf("failed to write updated file: %w", err)
 	}
 
@@ -185,20 +186,14 @@ func (t *StrReplaceEditorTool) handleInsert(path, content string, pos []int, tot
 		return fmt.Sprintf("insert_line=%d is out of range (0-%d)", in.InsertLine1, totalLines), nil
 	}
 
-	lines := strings.Count(in.NewStr1, "\n") + 1
-	if lines > maxLinesPerEdit {
-		return fmt.Sprintf("inserted text spans %d lines, exceeds limit %d", lines, maxLinesPerEdit), nil
-	}
-
 	insertIdx := pos[in.InsertLine1-1]
 
 	var b strings.Builder
 	b.WriteString(content[:insertIdx])
 	b.WriteString(in.NewStr1)
-
 	b.WriteString(content[insertIdx:])
 
-	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		return "", fmt.Errorf("failed to write updated file: %w", err)
 	}
 

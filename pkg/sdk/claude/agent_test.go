@@ -26,6 +26,7 @@ func Test_Call_Message(t *testing.T) {
 	t.Log(resp)
 	t.Logf("Response: %s", resp.GetTextContent())
 }
+
 func Test_call_with_tool(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Anthropic integration test in short mode")

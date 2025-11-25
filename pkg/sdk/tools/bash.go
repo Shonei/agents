@@ -6,6 +6,9 @@ import (
 	"os/exec"
 
 	"github.com/fatih/color"
+
+	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/utils"
 )
 
 // BashTool is given an input command and executes it
@@ -28,7 +31,7 @@ func (b *BashTool) InputSchema() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"command": map[string]interface{}{
 				"type":        "string",
-				"description": "The command to execute",
+				"description": "The bash command you want to execute.",
 				"example":     "ls -la",
 			},
 		},
@@ -39,7 +42,7 @@ func (b *BashTool) InputSchema() map[string]interface{} {
 func (b *BashTool) Call(input map[string]interface{}) (interface{}, error) {
 	command, ok := input["command"].(string)
 	if !ok {
-		return "", fmt.Errorf("command must be a string")
+		return "", sdk.NewAIError("command must be a string")
 	}
 
 	userAsk(command)
@@ -64,11 +67,17 @@ func userAsk(command string) {
 	color.New(color.FgYellow, color.Bold).Println("\nYou are about to execute the following command:")
 	color.Cyan("  %s", command)
 	fmt.Print(color.New(color.Bold).Sprint("Do you want to continue? (y/N): "))
+
 	var answer string
-	fmt.Scanln(&answer)
+	_, err := fmt.Scanln(&answer)
+	if err != nil {
+		utils.NewExitError().WithMessage("failed to read user input").WithReason(err).Done()
+	}
+
 	if answer != "y" {
 		color.Red("user aborted")
 		os.Exit(0)
 	}
+
 	color.Green("Executing...\n\n")
 }

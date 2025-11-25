@@ -28,12 +28,14 @@ func NewRAG(name string, vecSize int) (*Storage, error) {
 	// Load the VSS extension for vector similarity search.
 	if _, err = db.Exec("INSTALL vss; LOAD vss;"); err != nil {
 		_ = db.Close()
+
 		return nil, fmt.Errorf("failed to load vss extension: %w", err)
 	}
 
 	// Enable persisting the vector index on disk
 	if _, err = db.Exec("SET hnsw_enable_experimental_persistence = True"); err != nil {
 		_ = db.Close()
+
 		return nil, fmt.Errorf("failed to load vss extension: %w", err)
 	}
 
@@ -45,11 +47,13 @@ func NewRAG(name string, vecSize int) (*Storage, error) {
 	);`, vecSize)
 	if _, err = db.Exec(createTable); err != nil {
 		_ = db.Close()
+
 		return nil, fmt.Errorf("failed to create documents table: %w", err)
 	}
 
 	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_documents_vec ON documents USING HNSW (vec) WITH (metric = 'cosine');`); err != nil {
 		_ = db.Close()
+
 		return nil, fmt.Errorf("failed to create HNSW index: %w", err)
 	}
 
@@ -76,8 +80,10 @@ func (r *Storage) AddDocument(d *Document) error {
 	}
 
 	vecLiteral := formatFloat32ArrayLiteral(d.Vec)
-	query := fmt.Sprintf(`INSERT INTO documents (meta, content, vec)
-		VALUES (?, ?, %s::FLOAT[%d]);`, vecLiteral, r.vecSize)
+	insertQuery := `INSERT INTO documents (meta, content, vec) 
+		VALUES (?, ?, %s::FLOAT[%d]);`
+
+	query := fmt.Sprintf(insertQuery, vecLiteral, r.vecSize)
 
 	if _, err := r.sql.Exec(query, string(metaJSON), d.Content); err != nil {
 		return fmt.Errorf("failed to insert document: %w", err)
@@ -99,11 +105,12 @@ func (r *Storage) Search(query []float32, limit int) ([]Document, error) {
 
 	vecLiteral := formatFloat32ArrayLiteral(query)
 
-	// Use array_distance (L2) as described in the DuckDB VSS documentation.
-	stmt := fmt.Sprintf(`SELECT  meta, content, vec::TEXT
+	selectQuery := `SELECT  meta, content, vec::TEXT 
 		FROM documents
 		ORDER BY array_distance(vec, %s::FLOAT[%d])
-		LIMIT ?;`, vecLiteral, r.vecSize)
+		LIMIT ?;`
+
+	stmt := fmt.Sprintf(selectQuery, vecLiteral, r.vecSize)
 
 	rows, err := r.sql.Query(stmt, limit)
 	if err != nil {
@@ -161,6 +168,7 @@ func formatFloat32ArrayLiteral(vec []float32) string {
 		b.WriteString(strconv.FormatFloat(float64(f), 'f', -1, 32))
 	}
 	b.WriteByte(']')
+
 	return b.String()
 }
 

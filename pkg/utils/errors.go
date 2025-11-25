@@ -22,18 +22,21 @@ func NewExitError() *ExitError {
 // WithCode sets the exit code for the error
 func (e *ExitError) WithCode(code int) *ExitError {
 	e.ExitCode = code
+
 	return e
 }
 
 // WithMessage sets the message for the error
 func (e *ExitError) WithMessage(message string) *ExitError {
 	e.Message = message
+
 	return e
 }
 
 // WithReason sets the reason for the error
 func (e *ExitError) WithReason(reason error) *ExitError {
 	e.Reason = reason
+
 	return e
 }
 

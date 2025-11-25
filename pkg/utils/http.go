@@ -62,20 +62,25 @@ func (h *HTTPRequest) WithQueryParam(key, value string) *HTTPRequest {
 		h.Query = make(map[string]string)
 	}
 	h.Query[key] = value
+
 	return h
 }
 
 func (h *HTTPRequest) WithMethod(method string) *HTTPRequest {
 	h.Method = method
+
 	return h
 }
+
 func (h *HTTPRequest) WithPath(path string) *HTTPRequest {
 	h.Path = path
+
 	return h
 }
 
 func (h *HTTPRequest) WithOrganisation(organisation string) *HTTPRequest {
 	h.Organisation = organisation
+
 	return h
 }
 
@@ -98,6 +103,7 @@ func (h *HTTPRequest) JSONBody(b any) *HTTPRequest {
 	}
 
 	h.Body = bytes
+
 	return h.WithHeader("Content-Type", "application/json")
 }
 
@@ -107,6 +113,7 @@ func (h *HTTPRequest) WithHeader(key, value string) *HTTPRequest {
 	}
 
 	h.Headers[key] = value
+
 	return h
 }
 
@@ -202,11 +209,13 @@ func (h *HTTPRequest) Do() error {
 		if msg != "" {
 			return fmt.Errorf("http %s %s: status %d: %s", method, h.URL, resp.StatusCode, msg)
 		}
+
 		return fmt.Errorf("http %s %s: status %d", method, h.URL, resp.StatusCode)
 	}
 
 	if h.ResponseInto == nil {
 		_, _ = io.Copy(io.Discard, resp.Body)
+
 		return nil
 	}
 
@@ -237,6 +246,7 @@ func (h *HTTPRequest) Do() error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
+
 			return fmt.Errorf("failed to decode response: %w", err)
 		}
 

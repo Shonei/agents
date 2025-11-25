@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
+
 	"github.com/Shonei/agents/pkg/utils"
 )
 

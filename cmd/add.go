@@ -4,9 +4,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Shonei/agents/cmd/config"
 	"github.com/Shonei/agents/pkg/utils"
-	"github.com/spf13/cobra"
 )
 
 type add struct {

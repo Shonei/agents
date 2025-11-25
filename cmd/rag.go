@@ -5,12 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Shonei/agents/cmd/config"
 	ragpkg "github.com/Shonei/agents/pkg/rag"
 	"github.com/Shonei/agents/pkg/rag/storage"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/utils"
-	"github.com/spf13/cobra"
 )
 
 // Default embedding dimension for gemini-embedding-001.
@@ -148,6 +149,7 @@ func (r *ragCommand) RunSearch(cmd *cobra.Command, args []string) {
 
 	if len(results) == 0 {
 		fmt.Fprintln(cmd.OutOrStdout(), "No results found")
+
 		return
 	}
 
@@ -175,5 +177,6 @@ func ensureDir(path string) error {
 	if dir == "." || dir == "" {
 		return nil
 	}
+
 	return os.MkdirAll(dir, os.ModePerm)
 }

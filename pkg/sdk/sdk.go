@@ -3,6 +3,7 @@ package sdk
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -73,6 +74,9 @@ func (a *AI) Chat(message string) (string, error) {
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
 			nextMessage = scanner.Text()
+			if nextMessage == "" {
+				break
+			}
 		} else {
 			if err := scanner.Err(); err != nil {
 				return "", fmt.Errorf("error reading input: %w", err)
@@ -84,7 +88,7 @@ func (a *AI) Chat(message string) (string, error) {
 		history = append(history, NewTextMessage(RoleUser, nextMessage))
 	}
 
-	return "", nil // Should strictly be unreachable if we only exit on signal, but loop break is possible
+	return "", nil // Reached when user input is empty which is treated as an exit condition
 }
 
 type chatPayload struct {
@@ -202,13 +206,15 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 
 			result, err := tool.Call(toolCall.Input)
 			if err != nil {
+				var aiError *AIError
+				if errors.As(err, &aiError) {
+					toolResults = append(toolResults, NewToolResultContentBlock(toolCall.ID, aiError.AIResponse(), true))
+
+					continue
+				}
+
 				return nil, err
 			}
-
-			// color.New(color.FgCyan, color.Bold).Print("Tool Result: ")
-			// resultBytes, _ := json.Marshal(result)
-			// // color.Cyan("Tool Result: %s\n\n", resultBytes[:min(len(resultBytes), 100)])
-			// color.Cyan("Tool Result: %s\n\n", resultBytes)
 
 			// Convert result to JSON string for API compatibility
 			// The Anthropic API requires tool result content to be a string or array of content blocks
@@ -227,6 +233,7 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 
 			toolResults = append(toolResults, NewToolResultContentBlock(toolCall.ID, resultContent, false))
 			found = true
+
 			break
 		}
 	}

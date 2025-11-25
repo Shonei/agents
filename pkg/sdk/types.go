@@ -46,6 +46,7 @@ func (m *InputMessage) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(aux.Content, &str); err == nil {
 		m.Content = str
+
 		return nil
 	}
 
@@ -55,6 +56,7 @@ func (m *InputMessage) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	m.Content = blocks
+
 	return nil
 }
 
@@ -212,6 +214,7 @@ func (r *MessageResponse) GetTextContent() string {
 			result += block.Text
 		}
 	}
+
 	return result
 }
 
@@ -223,5 +226,6 @@ func (r *MessageResponse) GetToolUses() []ResponseContentBlock {
 			toolUses = append(toolUses, block)
 		}
 	}
+
 	return toolUses
 }

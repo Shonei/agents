@@ -125,6 +125,12 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 		return nil, fmt.Errorf("failed to convert request: %w", err)
 	}
 
+	geminiRequest.GenerationConfig.ThinkingConfig = &ThinkingConfig{
+		IncludeThoughts: true,
+		ThinkingBudget:  100,
+		ThinkingLevel:   1,
+	}
+
 	var response GenerateContentResponse
 
 	urlPath := fmt.Sprintf("/v1beta/models/%s:generateContent", a.model)
@@ -295,6 +301,24 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 	contentBlocks := []sdk.ResponseContentBlock{}
 
 	for _, part := range candidate.Content.Parts {
+		// Consolidate thought content
+		thought := part.Thought
+		if thought == "" {
+			if part.ThoughtContent != "" {
+				thought = part.ThoughtContent
+			} else if part.Reasoning != "" {
+				thought = part.Reasoning
+			} else if part.ReasoningContent != "" {
+				thought = part.ReasoningContent
+			}
+		}
+
+		if thought != "" {
+			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
+				Type: sdk.ContentTypeThinking,
+				Text: thought,
+			})
+		}
 		if part.Text != "" {
 			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 				Type: sdk.ContentTypeText,
@@ -313,7 +337,7 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 	}
 
 	return &sdk.MessageResponse{
-		ID:      "gemini-response", // Gemini doesn't return a message ID in the same way
+		ID:      resp.ResponseId,
 		Type:    "message",
 		Role:    sdk.RoleAssistant,
 		Content: contentBlocks,

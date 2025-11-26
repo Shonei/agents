@@ -65,6 +65,10 @@ agents agent add \
 *   `time`: Get the current date and time.
 *   `rag`: Search information in your local code base.
 
+#### System Prompt Templating
+System prompts support dynamic content via Go templates (e.g., adding current time or file listings).
+See [Templating System Prompts](docs/templating_system_prompts.md) for a full guide.
+
 #### List Agents
 View all configured agents.
 

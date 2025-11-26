@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -38,25 +35,6 @@ func NewEngage(c *config.ConfigFactory) *cobra.Command {
 
 func (a *engage) Run(cmd *cobra.Command, args []string) {
 	a.configFactory.LoadConfig()
-
-	if a.prompt == "" {
-		fmt.Print("> ")
-		scanner := bufio.NewScanner(os.Stdin)
-		if scanner.Scan() {
-			a.prompt = scanner.Text()
-		}
-		if err := scanner.Err(); err != nil {
-			utils.NewExitError().WithMessage("failed to read input").WithReason(err).Done()
-		}
-	}
-
-	a.prompt = strings.TrimSpace(a.prompt)
-
-	// Validate that a prompt was provided
-	if len(args) == 0 {
-		utils.NewExitError().WithMessage("prompt is required").Done()
-	}
-
 	agentName := args[0]
 
 	// Get the agent configuration by name

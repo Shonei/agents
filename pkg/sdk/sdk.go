@@ -1,12 +1,11 @@
 package sdk
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
+	"github.com/Shonei/agents/pkg/utils"
 	"github.com/charmbracelet/glamour"
 	"github.com/fatih/color"
 )
@@ -43,6 +42,17 @@ func (a *AI) SetSystemPrompt(prompt string) {
 }
 
 func (a *AI) Chat(message string) (string, error) {
+	fmt.Println("Chat started. Press Ctrl+C to exit.")
+
+	if message == "" {
+		fmt.Print("\n> ")
+		input, err := utils.ReadMultilineInput()
+		if err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
+		message = input
+	}
+
 	tools := []Tool{}
 	for _, tool := range a.tools {
 		tools = append(tools, NewTool(tool.Name(), tool.Description(), tool.InputSchema()))
@@ -52,8 +62,6 @@ func (a *AI) Chat(message string) (string, error) {
 	history := []InputMessage{
 		NewTextMessage(RoleUser, message),
 	}
-
-	fmt.Println("Chat started. Press Ctrl+C to exit.")
 
 	for {
 		// Process current history
@@ -71,17 +79,11 @@ func (a *AI) Chat(message string) (string, error) {
 		// Prompt for next user input
 		fmt.Print("\n> ")
 		var nextMessage string
-		scanner := bufio.NewScanner(os.Stdin)
-		if scanner.Scan() {
-			nextMessage = scanner.Text()
-			if nextMessage == "" {
-				break
-			}
-		} else {
-			if err := scanner.Err(); err != nil {
-				return "", fmt.Errorf("error reading input: %w", err)
-			}
+		if nextMessage, err = utils.ReadMultilineInput(); err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
 
+		if nextMessage == "" {
 			break
 		}
 

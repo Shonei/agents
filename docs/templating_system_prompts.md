@@ -52,7 +52,7 @@ Here is the file structure:
 When adding an agent via the CLI, you can use these templates directly in the system prompt string.
 
 ```bash
-agents agent add \
+agents add \
   --name "context-aware" \
   --system-prompt "You are an AI assistant. Current time: {{ .Now }}. Working in: {{ .Cwd }}." \
   --model "claude-sonnet-4-5-20250929"

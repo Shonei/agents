@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -21,7 +24,7 @@ func NewEngage(c *config.ConfigFactory) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "engage [agent_name] --prompt <prompt>",
+		Use:   "engage [agent_name]",
 		Short: "Command to engage the agent and get the results",
 		Run:   a.Run,
 		Args:  cobra.ExactArgs(1),
@@ -30,13 +33,24 @@ func NewEngage(c *config.ConfigFactory) *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVar(&a.prompt, "prompt", "", "The prompt to send to the agent")
 
-	_ = cmd.MarkFlagRequired("prompt")
-
 	return cmd
 }
 
 func (a *engage) Run(cmd *cobra.Command, args []string) {
 	a.configFactory.LoadConfig()
+
+	if a.prompt == "" {
+		fmt.Print("> ")
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			a.prompt = scanner.Text()
+		}
+		if err := scanner.Err(); err != nil {
+			utils.NewExitError().WithMessage("failed to read input").WithReason(err).Done()
+		}
+	}
+
+	a.prompt = strings.TrimSpace(a.prompt)
 
 	// Validate that a prompt was provided
 	if len(args) == 0 {

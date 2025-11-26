@@ -144,6 +144,7 @@ const (
 	ContentTypeImage      = "image"
 	ContentTypeToolUse    = "tool_use"
 	ContentTypeToolResult = "tool_result"
+	ContentTypeThinking   = "thinking"
 )
 
 // Role constants

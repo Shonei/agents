@@ -26,11 +26,13 @@ func Execute() {
 	list := NewList(configFactory)
 	engage := NewEngage(configFactory)
 	rag := NewRAG(configFactory)
+	prompt := NewSystemPrompt(configFactory)
 
 	rootCmd.AddCommand(add)
 	rootCmd.AddCommand(list)
 	rootCmd.AddCommand(engage)
 	rootCmd.AddCommand(rag)
+	rootCmd.AddCommand(prompt)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

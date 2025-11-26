@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/cmd/config"
@@ -87,7 +88,12 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 
 	// Add system prompt if configured
 	if agent.SystemPrompts != "" {
-		ai.SetSystemPrompt(agent.SystemPrompts)
+		rendered, err := sdk.RenderPrompt(agent.SystemPrompts)
+		if err != nil {
+			utils.NewExitError().WithMessage("failed to render prompt").WithReason(err).Done()
+		}
+
+		ai.SetSystemPrompt(rendered)
 	}
 
 	// Send the message to Claude

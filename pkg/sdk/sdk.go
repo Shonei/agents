@@ -114,6 +114,7 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 			Messages:   messages,
 			Tools:      c.tools,
 			ToolChoice: NewAutoToolChoice(),
+			System:     a.systemPrompt,
 		}
 
 		response, err := a.agent.CreateMessage(request)

@@ -43,7 +43,7 @@ You need to provide API keys for the models you intend to use. You can set them 
 Create a new agent with a name, system prompt, and model. You can optionally attach tools.
 
 ```bash
-agents agent add \
+agents add \
   --name "coder" \
   --system-prompt "You are an expert Go developer." \
   --model "claude-sonnet-4-5-20250929" \
@@ -73,7 +73,7 @@ See [Templating System Prompts](docs/templating_system_prompts.md) for a full gu
 View all configured agents.
 
 ```bash
-agents agent list
+agents list
 ```
 
 ### Interacting with Agents
@@ -83,18 +83,17 @@ Chat with an agent directly from the terminal.
 
 **Interactive Mode:**
 ```bash
-agents agent engage --name coder
+agents engage coder
 ```
-*(Note: Prompt can be passed as an argument or via stdin)*
 
 **Single Prompt:**
 ```bash
-agents agent engage "Write a hello world in Go" --name coder
+agents engage coder --prompt "Write a hello world in Go"
 ```
 
 **Piped Input:**
 ```bash
-cat main.go | agents agent engage "Explain this code" --name coder -
+echo "Write a hello world in Go" | agents engage coder
 ```
 
 ### Retrieval-Augmented Generation (RAG)
@@ -123,7 +122,7 @@ To enable an agent to use your embedded data, you must configure the `rag` tool.
 
 1.  **Create the agent**:
     ```bash
-    agents agent add \
+    agents add \
       --name "researcher" \
       --system-prompt "You are a helpful assistant. Use the rag tool to find information." \
       --model "claude-sonnet-4-5-20250929" \
@@ -148,7 +147,7 @@ To enable an agent to use your embedded data, you must configure the `rag` tool.
 
 3.  **Engage**:
     ```bash
-    agents agent engage "What is in the documentation?" --name researcher
+    agents engage researcher --prompt "What is in the documentation?"
     ```
 
 ## Advanced Configuration
@@ -156,7 +155,7 @@ To enable an agent to use your embedded data, you must configure the `rag` tool.
 You can override the default config file location:
 
 ```bash
-agents agent list --config ./my-config.yaml
+agents list --config ./my-config.yaml
 ```
 
 Or use the environment variable `agents_CONFIG`.

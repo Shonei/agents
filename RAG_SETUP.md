@@ -26,7 +26,7 @@ This will create `agents.db` in your current directory (or update it if it exist
 Use the CLI to create an agent with the `rag` tool enabled.
 
 ```bash
-agents agent add \
+agents add \
   --name "researcher" \
   --system-prompt "You are a helpful assistant with access to a knowledge base. Use the rag tool to find information." \
   --model "claude-sonnet-4-5-20250929" \
@@ -73,5 +73,5 @@ agents:
 Now you can chat with your agent, and it will be able to query the database.
 
 ```bash
-agents agent engage "What does the documentation say about configuration?" --name researcher
+agents engage researcher --prompt "What does the documentation say about configuration?"
 ```

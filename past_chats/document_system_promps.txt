@@ -1,0 +1,101 @@
+➜  agents git:(system-prompts) agents engage gemini --prompt 'Can you helm me create a docs folder and eplain how to template systems promps. Then link the docs folder to the README'
+Chat started. Press Ctrl+C to exit.
+Usage: 1562 input tokens, 18 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"main.go"}
+
+Usage: 2328 input tokens, 16 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"."}
+
+Usage: 2823 input tokens, 16 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg"}
+
+Usage: 2978 input tokens, 18 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg/sdk"}
+
+Usage: 3212 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/system.go"}
+
+Usage: 5036 input tokens, 18 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"README.md"}
+
+Usage: 7331 input tokens, 17 output tokens
+Tool Call: bash
+Tool Input:  {"command":"mkdir -p docs"}
+
+
+You are about to execute the following command:
+  mkdir -p docs
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 7503 input tokens, 551 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"# Templating System Prompts\n\nThe `agents` CLI supports dynamic system prompts using Go
+
+
+Yuou are about to create or overwrite the following file:
+  /Users/teodor/Documents/agents/docs/templating_system_prompts.md
+Do you want to continue? (y/N): y
+Usage: 8679 input tokens, 28 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"README.md","view_range":[60,75]}
+
+Usage: 9483 input tokens, 93 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"insert","insert_line":68,"new_str":"#### System Prompt Templating\nSystem prompts suppor
+
+y
+Usage: 9641 input tokens, 28 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"README.md","view_range":[65,75]}
+
+Usage: 9917 input tokens, 155 output tokens
+Assistant:
+  I have created the  docs  folder and added a comprehensive guide on how to
+  template system prompts, then linked it in the  README.md .
+
+  1. Created Documentation:  docs/templating_system_prompts.md  This file
+  explains how to use the available helper functions like  {{ .Cwd }} ,  {{
+  .Now }} ,  {{ .OSInfo }} , and  {{ .DirList }}  within your agent system
+  prompts.
+
+  2. Updated README: I added a System Prompt Templating section to the
+  README.md  under Managing Agents, which links to the new documentation.
+
+  You can verify the new documentation by opening
+  docs/templating_system_prompts.md .
+
+
+> Usage: 7491 input tokens, 15 output tokens
+Tool Call: bash
+Tool Input:  {"command":"git status"}
+
+
+You are about to execute the following command:
+  git status
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 8452 input tokens, 35 output tokens
+Tool Call: bash
+Tool Input:  {"command":"git add . \u0026\u0026 git commit -m \"docs: add system prompt templating guide and link
+
+
+You are about to execute the following command:
+  git add . && git commit -m "docs: add system prompt templating guide and link in README"
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 8692 input tokens, 40 output tokens
+Assistant:
+  I've committed the changes to the repository.
+
+  Commit:  docs: add system prompt templating guide and link in README
+
+  Is there anything else you'd like help with?

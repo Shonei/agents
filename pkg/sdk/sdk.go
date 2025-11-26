@@ -239,7 +239,7 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 		}
 	}
 	if !found {
-		return nil, fmt.Errorf("tool not found: %s", toolCall.Name)
+		return nil, fmt.Errorf("tool not found: '%s'", toolCall.Name)
 	}
 
 	return toolResults, nil

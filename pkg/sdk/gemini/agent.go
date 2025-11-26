@@ -295,6 +295,24 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 	contentBlocks := []sdk.ResponseContentBlock{}
 
 	for _, part := range candidate.Content.Parts {
+		// Consolidate thought content
+		thought := part.Thought
+		if thought == "" {
+			if part.ThoughtContent != "" {
+				thought = part.ThoughtContent
+			} else if part.Reasoning != "" {
+				thought = part.Reasoning
+			} else if part.ReasoningContent != "" {
+				thought = part.ReasoningContent
+			}
+		}
+
+		if thought != "" {
+			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
+				Type: sdk.ContentTypeThinking,
+				Text: thought,
+			})
+		}
 		if part.Text != "" {
 			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 				Type: sdk.ContentTypeText,

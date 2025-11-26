@@ -1,0 +1,272 @@
+➜  agents git:(main) agents engage gemini
+> If you look at how the inout works when the user is prompted it only accepts a single line. How can we make the user prompt to accept multiple lines
+Chat started. Press Ctrl+C to exit.
+Usage: 1595 input tokens, 26 output tokens
+Tool Call: list_dir
+Tool Input:  {"max_depth":3,"path":".","recursive":true}
+
+Usage: 5278 input tokens, 18 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"main.go"}
+
+Usage: 5590 input tokens, 20 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"cmd/engage.go"}
+
+Usage: 6963 input tokens, 20 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"cmd/add.go"}
+
+Usage: 8226 input tokens, 46 output tokens
+Tool Call: bash
+Tool Input:  {"command":"grep -r \"Scan\" .\ngrep -r \"Reader\" .\ngrep -r \"ReadString\" .\ngrep -r \"bufio\" ."
+
+
+You are about to execute the following command:
+  grep -r "Scan" .
+grep -r "Reader" .
+grep -r "ReadString" .
+grep -r "bufio" .
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 8856 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go"}
+
+Usage: 12203 input tokens, 26 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/ask_user.go"}
+
+Usage: 14059 input tokens, 18 output tokens
+Tool Call: list_dir
+Tool Input:  {"path":"pkg/utils"}
+
+Usage: 15070 input tokens, 18 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"go.mod"}
+
+Usage: 19625 input tokens, 193 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package utils\n\nimport (\n\t\"bufio\"\n\t\"os\"\n\t\"strings\"\n)\n\n// ReadMultilineIn
+
+
+Yuou are about to create or overwrite the following file:
+  /Users/teodor/Documents/agents/pkg/utils/input.go
+Do you want to continue? (y/N): y
+Usage: 20244 input tokens, 60 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"insert","insert_line":12,"new_str":"\t\"github.com/Shonei/agents/pkg/utils\"","path":"pk
+
+Usage: 20527 input tokens, 32 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go","view_range":[70,90]}
+
+Usage: 21319 input tokens, 31 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go","view_range":[1,20]}
+
+Usage: 21912 input tokens, 106 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\t\"github.com/Shonei/agents/pkg/utils\"\n)","old_str":"\t\"gith
+
+Usage: 22330 input tokens, 32 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go","view_range":[70,90]}
+
+Usage: 22703 input tokens, 228 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\t\tvar nextMessage string\n\t\tvar err error\n\t\tif nextMessag
+
+Usage: 23205 input tokens, 26 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/ask_user.go"}
+
+Usage: 24110 input tokens, 134 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\t\"fmt\"\n\n\t\"github.com/Shonei/agents/pkg/utils\"\n\t\"githu
+
+Usage: 24453 input tokens, 36 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/ask_user.go","view_range":[40,60]}
+
+Usage: 25352 input tokens, 197 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\tanswer, err := utils.ReadMultilineInput()\n\tif err != nil {\n
+
+Usage: 25791 input tokens, 28 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/write_to_file.go"}
+
+Usage: 27881 input tokens, 24 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/bash.go"}
+
+Usage: 29036 input tokens, 513 output tokens
+Tool Call: write_to_file
+Tool Input:  {"content":"package utils\n\nimport (\n\t\"io\"\n\t\"os\"\n\t\"strings\"\n\t\"testing\"\n)\n\nfunc T
+
+
+Yuou are about to create or overwrite the following file:
+  /Users/teodor/Documents/agents/pkg/utils/input_test.go
+Do you want to continue? (y/N): y
+Usage: 29737 input tokens, 33 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go test ./pkg/utils/input_test.go ./pkg/utils/input.go"}
+
+
+You are about to execute the following command:
+  go test ./pkg/utils/input_test.go ./pkg/utils/input.go
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 29853 input tokens, 86 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\t\"testing\"\n","old_str":"\t\"strings\"\n\t\"testing\"","old_s
+
+Usage: 29999 input tokens, 33 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go test -v pkg/utils/input_test.go pkg/utils/input.go"}
+
+
+You are about to execute the following command:
+  go test -v pkg/utils/input_test.go pkg/utils/input.go
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 30235 input tokens, 31 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go","view_range":[1,20]}
+
+Usage: 30705 input tokens, 35 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/tools/ask_user.go","view_range":[1,10]}
+
+Usage: 30915 input tokens, 19 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ./pkg/utils"}
+
+
+You are about to execute the following command:
+  go build ./pkg/utils
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 31095 input tokens, 28 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ./pkg/sdk\ngo build ./pkg/sdk/tools"}
+
+
+You are about to execute the following command:
+  go build ./pkg/sdk
+go build ./pkg/sdk/tools
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 31362 input tokens, 25 output tokens
+Tool Call: bash
+Tool Input:  {"command":"grep \"os\\.\" pkg/sdk/sdk.go"}
+
+
+You are about to execute the following command:
+  grep "os\." pkg/sdk/sdk.go
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 31734 input tokens, 208 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"import (\n\t\"encoding/json\"\n\t\"errors\"\n\t\"fmt\"\n\n\t\"gi
+
+Usage: 32031 input tokens, 123 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\t\tvar nextMessage string\n\t\tif nextMessage, err = utils.Read
+
+Usage: 32615 input tokens, 32 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/sdk/sdk.go","view_range":[70,80]}
+
+Usage: 32939 input tokens, 123 output tokens
+Tool Call: str_replace_editor
+Tool Input:  {"command":"str_replace","new_str":"\t\tvar nextMessage string\n\t\tif nextMessage, err = utils.Read
+
+Usage: 33205 input tokens, 21 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ./pkg/sdk/tools"}
+
+
+You are about to execute the following command:
+  go build ./pkg/sdk/tools
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 33289 input tokens, 19 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ./pkg/sdk"}
+
+
+You are about to execute the following command:
+  go build ./pkg/sdk
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 33345 input tokens, 17 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ./cmd"}
+
+
+You are about to execute the following command:
+  go build ./cmd
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 33397 input tokens, 16 output tokens
+Tool Call: bash
+Tool Input:  {"command":"go build ."}
+
+
+You are about to execute the following command:
+  go build .
+Do you want to continue? (y/N): y
+Executing...
+
+Usage: 33446 input tokens, 22 output tokens
+Tool Call: view_file
+Tool Input:  {"path":"pkg/utils/files.go"}
+
+Usage: 34752 input tokens, 360 output tokens
+Assistant:
+  The user wanted to enable multi-line input for the agent prompt. I have
+  implemented a solution that reads input until an empty line is encountered
+  (allowing the user to paste text blocks or type multiple paragraphs).
+
+  I performed the following changes:
+
+  1. Created  pkg/utils/input.go  with a new function  ReadMultilineInput
+  that reads from  stdin  until an empty line is found.
+  2. Created  pkg/utils/input_test.go  to verify the logic.
+  3. Updated  pkg/sdk/sdk.go  (the main chat loop) to use  utils.
+  ReadMultilineInput  instead of  bufio.Scanner  (which was single-line).
+  4. Updated  pkg/sdk/tools/ask_user.go  (the  ask_user  tool) to also use
+  utils.ReadMultilineInput .
+
+  This allows users to input multi-line text by typing their content and
+  pressing Enter, then pressing Enter again on a new line to send. Pasting
+  text blocks (which typically end with a newline) works seamlessly, requiring
+  just one extra Enter to send.
+
+  The solution was verified by running the tests and compiling the project.
+
+  ### Modified Files:
+
+  •  pkg/utils/input.go  (new)
+  •  pkg/utils/input_test.go  (new)
+  •  pkg/sdk/sdk.go
+  •  pkg/sdk/tools/ask_user.go
+
+  ### Usage:
+
+  When prompted (e.g.,  >   or  Your Answer:  ), type your input. Press Enter
+  to start a new line. To submit the input, press Enter on an empty line.
+
+
+>

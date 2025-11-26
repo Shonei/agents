@@ -1,10 +1,9 @@
 package tools
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 
+	"github.com/Shonei/agents/pkg/utils"
 	"github.com/fatih/color"
 )
 
@@ -45,14 +44,10 @@ func (a *AskUserTool) Call(input map[string]interface{}) (interface{}, error) {
 	color.New(color.FgYellow, color.Bold).Printf("\nQuestion from Agent: %s\n", question)
 	fmt.Print(color.New(color.Bold).Sprint("Your Answer: "))
 
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		return scanner.Text(), nil
-	}
-
-	if err := scanner.Err(); err != nil {
+	answer, err := utils.ReadMultilineInput()
+	if err != nil {
 		return "", fmt.Errorf("error reading input: %w", err)
 	}
 
-	return "", fmt.Errorf("no input received")
+	return answer, nil
 }

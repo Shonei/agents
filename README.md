@@ -35,6 +35,17 @@ You need to provide API keys for the models you intend to use. You can set them 
    gemini_api_key: "your-gemini-key"
    ```
 
+### Audit Logging
+
+The CLI supports audit logging to help you understand and debug agent conversations. You can enable it in the config file:
+
+```yaml
+audit:
+  enabled: true
+  type: file
+  path: ./audit
+```
+
 ## Usage
 
 ### Managing Agents

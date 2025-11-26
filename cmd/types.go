@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/Shonei/agents/cmd/config"
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/Shonei/agents/pkg/sdk/claude"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/sdk/tools"
@@ -13,19 +14,19 @@ const (
 	Gemini3  = gemini.ModelGemini3
 )
 
-func Models() map[string]func(config.Agent, string) *sdk.AI {
-	return map[string]func(config.Agent, string) *sdk.AI{
-		Claude45: func(agent config.Agent, apiKey string) *sdk.AI {
+func Models() map[string]func(config.Agent, string, *audit.Audit) *sdk.AI {
+	return map[string]func(config.Agent, string, *audit.Audit) *sdk.AI{
+		Claude45: func(agent config.Agent, apiKey string, audit *audit.Audit) *sdk.AI {
 			return sdk.NewAI(claude.NewAgent(
 				claude.WithAPIKey(apiKey),
 				claude.WithModel(claude.ModelClaude45),
-			))
+			), audit)
 		},
-		Gemini3: func(agent config.Agent, apiKey string) *sdk.AI {
+		Gemini3: func(agent config.Agent, apiKey string, audit *audit.Audit) *sdk.AI {
 			return sdk.NewAI(gemini.NewAgent(
 				gemini.WithAPIKey(apiKey),
 				gemini.WithModel(gemini.ModelGemini3),
-			))
+			), audit)
 		},
 	}
 }

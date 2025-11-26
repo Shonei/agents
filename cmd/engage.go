@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/spf13/cobra"
 
-	"github.com/Shonei/agents/cmd/config"
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -50,7 +51,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	geminiKey := a.configFactory.GetGeminiAPIKey()
 
 	// Initialize the agent
-	ai := modelFactory(agent, apiKey)
+	ai := modelFactory(agent, apiKey, audit.NewAudit(a.configFactory.Config.AuditConfig))
 
 	// Register tools
 	for _, toolName := range agent.Tools {

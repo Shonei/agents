@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/fatih/color"
 
 	"github.com/Shonei/agents/pkg/utils"
@@ -19,7 +20,7 @@ func (b *WriteToFileTool) Name() string {
 }
 
 func (b *WriteToFileTool) Description() string {
-	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed."
+	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed. This can also be used to overwrite existing files. By default the tool will not overwrite existing files. To overwrite the file set the force parameter to true."
 }
 
 func (b *WriteToFileTool) Init(config map[string]string) {
@@ -29,7 +30,7 @@ func (b *WriteToFileTool) InputSchema() map[string]interface{} {
 	return map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"file_path": map[string]interface{}{
+			"path": map[string]interface{}{
 				"type":        "string",
 				"description": "The location of where to create the file. This can be relative or absolute. The file type created depends of the file extension provided.",
 				"example":     "./new-dir/file.txt or /tmp/file.txt",
@@ -45,12 +46,17 @@ func (b *WriteToFileTool) InputSchema() map[string]interface{} {
 				"example":     "false",
 			},
 		},
-		"required": []interface{}{"file_path"},
+		"required": []interface{}{"path"},
+		"example": map[string]interface{}{
+			"path":    "./new-dir/file.txt",
+			"content": "Hello World",
+			"force":   false,
+		},
 	}
 }
 
 type WriteToFileToolInput struct {
-	FilePath string `json:"file_path"`
+	FilePath string `json:"path"`
 	Content  string `json:"content"`
 	Force    bool   `json:"force"`
 }
@@ -63,11 +69,7 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 
 	// check if file exists so we can validate input
 	if toolInput.FilePath == "" {
-		return "", fmt.Errorf("file path is required")
-	}
-
-	if _, err := os.Stat(toolInput.FilePath); err == nil && !toolInput.Force {
-		return "", fmt.Errorf("file already exists")
+		return "", sdk.NewAIError("path is required when writing to file")
 	}
 
 	cwd, err := os.Getwd()
@@ -77,6 +79,10 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 
 	if !filepath.IsAbs(toolInput.FilePath) {
 		toolInput.FilePath = filepath.Join(cwd, toolInput.FilePath)
+	}
+
+	if _, err := os.Stat(toolInput.FilePath); err == nil && !toolInput.Force {
+		return "", sdk.NewAIError("file already exists, set force to true to overwrite the file content")
 	}
 
 	writeToFileAsk(toolInput.FilePath, toolInput.Force)

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Shonei/agents/pkg/sdk"
 )
 
 const (
@@ -32,7 +34,7 @@ func (t *StrReplaceEditorTool) InputSchema() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"command": map[string]interface{}{
 				"type":        "string",
-				"description": "Operation to perform: \"str_replace\" or \"insert\".",
+				"description": "Operation to perform: \"str_replace\" or \"insert\". If you are editing empty files or adding to the beginning of the file, use insert. \"insert\" can be used to add to the beginning of the file. \"str_replace\" should be used to replace string.",
 			},
 			"path": map[string]interface{}{
 				"type":        "string",
@@ -40,7 +42,7 @@ func (t *StrReplaceEditorTool) InputSchema() map[string]interface{} {
 			},
 			"new_str": map[string]interface{}{
 				"type":        "string",
-				"description": "The new string to replace the old string with. If left empty it will delete the old string.",
+				"description": "The new string to insert or replace with. If the string spans multiple lines, include the newlines. The string will be inserted if the command is insert or replace the old string if the command is str_replace.",
 			},
 			"old_str": map[string]interface{}{
 				"type":        "string",
@@ -56,10 +58,18 @@ func (t *StrReplaceEditorTool) InputSchema() map[string]interface{} {
 			},
 			"insert_line": map[string]interface{}{
 				"type":        "integer",
-				"description": "The 1-based line number to insert the new string before. Only used for insert. If command is insert, insert_line and new_str must be provided.",
+				"description": "The 1-based line number to insert the new string before. Only used for insert. If command is insert, insert_line and new_str must be provided. Use the insert command when writing to an empty file over the str_replace command.",
 			},
 		},
 		"required": []interface{}{"command", "path"},
+		"example": map[string]interface{}{
+			"command":                   "str_replace",
+			"path":                      "pkg/sdk/tools/str_replace_editor.go",
+			"new_str":                   "new string",
+			"old_str":                   "old string",
+			"old_str_start_line_number": 1,
+			"old_str_end_line_number":   1,
+		},
 	}
 }
 
@@ -133,9 +143,9 @@ func (t *StrReplaceEditorTool) Call(input map[string]interface{}) (interface{}, 
 	}
 
 	switch in.Command {
-	case "str_replace":
+	case strReplaceCommand:
 		return t.handleStrReplace(path, content, pos, totalLines, in)
-	case "insert":
+	case insertCommand:
 		return t.handleInsert(path, content, pos, totalLines, in)
 	default:
 		return "", fmt.Errorf("unsupported command: %q", in.Command)
@@ -144,7 +154,7 @@ func (t *StrReplaceEditorTool) Call(input map[string]interface{}) (interface{}, 
 
 func (t *StrReplaceEditorTool) handleStrReplace(path, content string, pos []int, totalLines int, in StrReplaceEditorToolInput) (interface{}, error) {
 	if in.OldStr1 == "" || in.OldStrStart1 <= 0 || in.OldStrEnd1 <= 0 {
-		return "", fmt.Errorf("old_str and line numbers are required")
+		return "", sdk.NewAIError("old_str, old_str_start_line_number, and old_str_end_line_number are required")
 	}
 
 	if in.OldStrEnd1 < in.OldStrStart1 {
@@ -179,7 +189,7 @@ func (t *StrReplaceEditorTool) handleStrReplace(path, content string, pos []int,
 
 func (t *StrReplaceEditorTool) handleInsert(path, content string, pos []int, totalLines int, in StrReplaceEditorToolInput) (interface{}, error) {
 	if in.InsertLine1 == 0 {
-		return "", fmt.Errorf("insert_line and new_str are required")
+		return "", sdk.NewAIError("insert_line and new_str are required")
 	}
 
 	if in.InsertLine1 > totalLines {

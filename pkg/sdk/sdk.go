@@ -234,6 +234,8 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 	found := false
 	for _, tool := range a.tools {
 		if tool.Name() == toolCall.Name {
+			found = true
+
 			// print some generic information of the tool calls we make
 			color.New(color.FgCyan, color.Bold).Print("Tool Call: ")
 			color.Cyan("%s", tool.Name())
@@ -269,7 +271,6 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 			}
 
 			toolResults = append(toolResults, NewToolResultContentBlock(toolCall.ID, resultContent, false))
-			found = true
 
 			break
 		}

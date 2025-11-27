@@ -18,6 +18,7 @@ import (
 type HTTPRequest struct {
 	ctx          context.Context
 	debug        bool
+	attempt      int
 	Method       string
 	URL          string
 	Path         string
@@ -28,6 +29,7 @@ type HTTPRequest struct {
 	Headers      map[string]string
 	Query        map[string]string
 	client       *http.Client
+	retry        func(int, *http.Response) (int, bool)
 }
 
 type HTTPBuilder struct {
@@ -90,6 +92,15 @@ func (h *HTTPRequest) WithJWT(jwt string) *HTTPRequest {
 
 func (h *HTTPRequest) WithContext(ctx context.Context) *HTTPRequest {
 	h.ctx = ctx
+
+	return h
+}
+
+// WithRetry sets the retry function for the request. The retry function is called with the attempt number and the response.
+// The body is not available on the response and is already read and discarded.
+// The function can return an false to stop the retry loop or return the number of seconds to wait before retrying.
+func (h *HTTPRequest) WithRetry(retry func(int, *http.Response) (int, bool)) *HTTPRequest {
+	h.retry = retry
 
 	return h
 }
@@ -185,6 +196,8 @@ func (h *HTTPRequest) Do() error {
 		fmt.Fprintln(os.Stderr, string(reqBytes))
 	}
 
+	h.attempt++
+
 	resp, err := h.client.Do(req)
 	if err != nil {
 		return err
@@ -198,6 +211,19 @@ func (h *HTTPRequest) Do() error {
 
 	if resp.StatusCode/100 != 2 {
 		b, _ := io.ReadAll(resp.Body)
+
+		if h.retry != nil {
+			after, shouldRetry := h.retry(h.attempt, resp)
+			if shouldRetry {
+				// clear body
+				b = []byte{}
+
+				// sleep for the specified time
+				time.Sleep(time.Duration(after) * time.Second)
+
+				return h.Do()
+			}
+		}
 
 		var apiErr APIError
 		jsonErr := json.Unmarshal(b, &apiErr)

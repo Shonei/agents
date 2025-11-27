@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/utils"
@@ -62,6 +63,27 @@ func (a *Agent) MaxTokens() int {
 	return a.maxTokens
 }
 
+func retry(attempt int, resp *http.Response) (int, bool) {
+	if attempt > 3 {
+		return 0, false
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		// try and get header
+		retryAfterHeader := resp.Header.Get("Retry-After")
+		if retryAfterHeader != "" {
+			retryAfter, err := strconv.Atoi(retryAfterHeader)
+			if err == nil {
+				return retryAfter, true
+			}
+		}
+
+		return 15, true
+	}
+
+	return 0, false
+}
+
 // NewAgent creates a new Agent with the given options
 func NewAgent(opts ...AgentOption) *Agent {
 	agent := &Agent{
@@ -115,6 +137,7 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 		WithHeader("x-api-key", a.apiKey).
 		WithHeader("anthropic-version", a.apiVersion).
 		JSONBody(internalReq).
+		WithRetry(retry).
 		Into(&internalResp).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message: %w", err)

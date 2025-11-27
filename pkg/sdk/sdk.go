@@ -183,6 +183,12 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 
 		// Print non-tool-use blocks
 		for _, block := range response.Content {
+			if block.Type == ContentTypeThinking {
+				color.New(color.FgHiBlack, color.Italic).Print("Thinking: ")
+				fmt.Println(block.Text)
+				continue
+			}
+
 			if block.Type != ContentTypeToolUse {
 				color.New(color.FgBlue, color.Bold).Print("Assistant: ")
 

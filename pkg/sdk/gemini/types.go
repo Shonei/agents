@@ -22,6 +22,10 @@ type Part struct {
 	FunctionCall     *FunctionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *FunctionResponse `json:"functionResponse,omitempty"`
 	ThoughtSignature string            `json:"thoughtSignature,omitempty"`
+	Thought          string            `json:"thought,omitempty"`
+	ThoughtContent   string            `json:"thought_content,omitempty"`
+	Reasoning        string            `json:"reasoning,omitempty"`
+	ReasoningContent string            `json:"reasoning_content,omitempty"`
 }
 
 // Blob represents raw data (like images)
@@ -67,18 +71,26 @@ type FunctionCallingConfig struct {
 
 // GenerationConfig represents generation configuration
 type GenerationConfig struct {
-	StopSequences   []string `json:"stopSequences,omitempty"`
-	CandidateCount  int      `json:"candidateCount,omitempty"`
-	MaxOutputTokens int      `json:"maxOutputTokens,omitempty"`
-	Temperature     float64  `json:"temperature,omitempty"`
-	TopP            float64  `json:"topP,omitempty"`
-	TopK            int      `json:"topK,omitempty"`
+	StopSequences   []string        `json:"stopSequences,omitempty"`
+	CandidateCount  int             `json:"candidateCount,omitempty"`
+	MaxOutputTokens int             `json:"maxOutputTokens,omitempty"`
+	Temperature     float64         `json:"temperature,omitempty"`
+	TopP            float64         `json:"topP,omitempty"`
+	TopK            int             `json:"topK,omitempty"`
+	ThinkingConfig  *ThinkingConfig `json:"thinkingConfig,omitempty"`
+}
+
+type ThinkingConfig struct {
+	IncludeThoughts bool `json:"includeThoughts,omitempty"`
+	ThinkingBudget  int  `json:"thinkingBudget,omitempty"`
+	ThinkingLevel   int  `json:"thinkingLevel,omitempty"`
 }
 
 // GenerateContentResponse represents the response from generating content
 type GenerateContentResponse struct {
 	Candidates    []Candidate    `json:"candidates"`
 	UsageMetadata *UsageMetadata `json:"usageMetadata,omitempty"`
+	ResponseId    string         `json:"responseId,omitempty"`
 }
 
 // Candidate represents a generation candidate

@@ -25,3 +25,12 @@ func ReadMultilineInput() (string, error) {
 
 	return strings.Join(lines, "\n"), nil
 }
+
+// ReadUserInput reads a single line of input from the user with a prompt
+func ReadUserInput() (string, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	input := scanner.Text()
+
+	return input, scanner.Err()
+}

@@ -16,7 +16,7 @@ const (
 	// DefaultModel is the default Claude model to use
 	DefaultModel = ModelClaude45
 	// DefaultMaxTokens is the default maximum tokens for responses
-	DefaultMaxTokens = 1024
+	DefaultMaxTokens = 10_000
 	// EnvAPIKey is the environment variable name for the Anthropic API key
 	EnvAPIKey = "ANTHROPIC_API_KEY" //nolint:gosec
 )

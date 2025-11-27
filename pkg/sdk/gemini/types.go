@@ -22,10 +22,7 @@ type Part struct {
 	FunctionCall     *FunctionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *FunctionResponse `json:"functionResponse,omitempty"`
 	ThoughtSignature string            `json:"thoughtSignature,omitempty"`
-	Thought          string            `json:"thought,omitempty"`
-	ThoughtContent   string            `json:"thought_content,omitempty"`
-	Reasoning        string            `json:"reasoning,omitempty"`
-	ReasoningContent string            `json:"reasoning_content,omitempty"`
+	Thought          bool              `json:"thought,omitempty"`
 }
 
 // Blob represents raw data (like images)

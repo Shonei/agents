@@ -22,7 +22,7 @@ const (
 
 type logger interface {
 	logEvent(event Event)
-	user(user User)
+	logUser(user User)
 }
 type Audit struct {
 	logger logger
@@ -98,7 +98,7 @@ func (a *Audit) User(p string) {
 	idHash.Write([]byte(user.SystemPrompt))
 	user.ID = string(idHash.Sum(nil))
 
-	a.logger.user(user)
+	a.logger.logUser(user)
 }
 
 type fileLogger struct {
@@ -151,13 +151,10 @@ func (f *fileLogger) appendToFile(data []byte) {
 	}
 }
 
-func (f *fileLogger) user(user User) {
-}
-
 type noopAudit struct{}
 
 func (a *noopAudit) logEvent(event Event) {
 }
 
-func (a *noopAudit) user(user User) {
+func (a *noopAudit) logUser(user User) {
 }

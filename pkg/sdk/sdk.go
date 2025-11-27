@@ -155,8 +155,11 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				})
 			case ContentTypeToolUse:
 				a.audit.LogEvent(audit.Event{
-					Type:         audit.FunctionCallEvent,
-					FunctionCall: block.Input,
+					Type: audit.FunctionCallEvent,
+					FunctionCall: functionCallAudit{
+						Name:  block.Name,
+						Input: block.Input,
+					},
 				})
 			}
 
@@ -281,10 +284,23 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 
 	for _, response := range toolResults {
 		a.audit.LogEvent(audit.Event{
-			Type:             audit.FunctionResponseEvent,
-			FunctionResponse: response.Content,
+			Type: audit.FunctionResponseEvent,
+			FunctionResponse: functionResponseAudit{
+				Name:     response.ToolUseID,
+				Response: response.Content,
+			},
 		})
 	}
 
 	return toolResults, nil
+}
+
+type functionCallAudit struct {
+	Name  string `json:"name"`
+	Input any    `json:"input"`
+}
+
+type functionResponseAudit struct {
+	Name     string `json:"name"`
+	Response any    `json:"response"`
 }

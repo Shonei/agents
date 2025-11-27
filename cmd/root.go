@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Shonei/agents/cmd/config"
+	"github.com/Shonei/agents/pkg/config"
 )
 
 var rootCmd = &cobra.Command{

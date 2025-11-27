@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/spf13/cobra"
 
-	"github.com/Shonei/agents/cmd/config"
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/utils"
 )
 

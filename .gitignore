@@ -6,3 +6,4 @@ agents
 agents.db
 agents.db.wal
 main
+audit/

@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Shonei/agents/cmd/config"
+	"github.com/Shonei/agents/pkg/config"
 	ragpkg "github.com/Shonei/agents/pkg/rag"
 	"github.com/Shonei/agents/pkg/rag/storage"
 	"github.com/Shonei/agents/pkg/sdk/gemini"

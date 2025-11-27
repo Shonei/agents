@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/Shonei/agents/pkg/utils"
 	"github.com/charmbracelet/glamour"
 	"github.com/fatih/color"
@@ -17,6 +18,7 @@ type AI struct {
 	agent        Agent
 	tools        []AITool
 	systemPrompt string
+	audit        *audit.Audit
 }
 
 type AITool interface {
@@ -27,9 +29,10 @@ type AITool interface {
 	Call(input map[string]interface{}) (interface{}, error)
 }
 
-func NewAI(agent Agent) *AI {
+func NewAI(agent Agent, audit *audit.Audit) *AI {
 	return &AI{
 		agent: agent,
+		audit: audit,
 	}
 }
 
@@ -38,6 +41,8 @@ func (a *AI) RegisterTool(tool AITool) {
 }
 
 func (a *AI) SetSystemPrompt(prompt string) {
+	a.audit.User(prompt)
+
 	a.systemPrompt = prompt
 }
 
@@ -63,6 +68,11 @@ func (a *AI) Chat(message string) (string, error) {
 		NewTextMessage(RoleUser, message),
 	}
 
+	a.audit.LogEvent(audit.Event{
+		Type:    audit.InitialMessageEvent,
+		Content: message,
+	})
+
 	for {
 		// Process current history
 		updatedHistory, _, err := a.chat(chatPayload{
@@ -86,6 +96,11 @@ func (a *AI) Chat(message string) (string, error) {
 		if nextMessage == "" {
 			break
 		}
+
+		a.audit.LogEvent(audit.Event{
+			Type:    audit.UserMessageEvent,
+			Content: nextMessage,
+		})
 
 		history = append(history, NewTextMessage(RoleUser, nextMessage))
 	}
@@ -132,6 +147,19 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 		// Convert response content to ContentBlocks for the conversation history
 		assistantContent := []ContentBlock{}
 		for _, block := range response.Content {
+			switch block.Type {
+			case ContentTypeText:
+				a.audit.LogEvent(audit.Event{
+					Type:    audit.AssistantMessageEvent,
+					Content: block.Text,
+				})
+			case ContentTypeToolUse:
+				a.audit.LogEvent(audit.Event{
+					Type:         audit.FunctionCallEvent,
+					FunctionCall: block.Input,
+				})
+			}
+
 			assistantContent = append(assistantContent, ContentBlock{
 				Type:             block.Type,
 				Text:             block.Text,
@@ -248,6 +276,13 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 	}
 	if !found {
 		return nil, fmt.Errorf("tool not found: '%s'", toolCall.Name)
+	}
+
+	for _, response := range toolResults {
+		a.audit.LogEvent(audit.Event{
+			Type:             audit.FunctionResponseEvent,
+			FunctionResponse: response.Content,
+		})
 	}
 
 	return toolResults, nil

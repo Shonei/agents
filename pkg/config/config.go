@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
@@ -15,7 +16,7 @@ import (
 
 var (
 	defaultConfigPath  = "~/.agents/config.yaml"
-	configEnvOverwrite = "agents_CONFIG"
+	configEnvOverwrite = "AGENTS_CONFIG"
 )
 
 func init() {
@@ -45,20 +46,17 @@ type ToolCall struct {
 }
 
 type Config struct {
-	ClaudeAPIKey string           `yaml:"claude_api_key"`
-	GeminiAPIKey string           `yaml:"gemini_api_key"`
-	Agents       map[string]Agent `yaml:"agents"`
+	ClaudeAPIKey string            `yaml:"claude_api_key"`
+	GeminiAPIKey string            `yaml:"gemini_api_key"`
+	Agents       map[string]Agent  `yaml:"agents"`
+	AuditConfig  audit.AuditConfig `yaml:"audit"`
 }
 
 func NewConfigFactory() *ConfigFactory {
-	return &ConfigFactory{
-		agentsClient: utils.NewHTTPBuilder("https://platform.agents.com"),
-	}
+	return &ConfigFactory{}
 }
 
 type ConfigFactory struct {
-	agentsClient *utils.HTTPBuilder
-
 	configPath   string
 	outputFormat string
 	contextName  string
@@ -68,7 +66,7 @@ type ConfigFactory struct {
 const ContextFileName = ".agents"
 
 func (c *ConfigFactory) AddFlags(flags *pflag.FlagSet) {
-	flags.StringVarP(&c.configPath, "config", "c", defaultConfigPath, "config file (default is $HOME/.agents/config.yaml)")
+	flags.StringVarP(&c.configPath, "config", "c", defaultConfigPath, "config file (default is "+defaultConfigPath+")")
 	flags.StringVarP(&c.contextName, "context", "x", "", "Load a specific context. If not set will use the default active one.")
 	flags.StringVarP(&c.outputFormat, "output", "o", "table", "output format (yaml, json, table)")
 }

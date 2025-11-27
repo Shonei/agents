@@ -2,6 +2,7 @@ package audit
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -96,7 +97,7 @@ func (a *Audit) User(p string) {
 
 	idHash := sha256.New()
 	idHash.Write([]byte(user.SystemPrompt))
-	user.ID = string(idHash.Sum(nil))
+	user.ID = hex.EncodeToString(idHash.Sum(nil))
 
 	a.logger.logUser(user)
 }

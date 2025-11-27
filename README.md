@@ -111,55 +111,7 @@ echo "Write a hello world in Go" | agents engage coder
 
 The CLI supports RAG to let agents answer questions based on your local files. This uses **DuckDB** for storage and **Gemini** for embeddings.
 
-#### 1. Embed Documents
-Index a folder of documents.
-
-```bash
-agents rag embed --folder ./my-docs
-```
-
-*   Required Env/Config: `GEMINI_API_KEY` (used for embeddings).
-*   Data is stored in `agents.db` (local DuckDB file) by default.
-
-#### 2. Search (Manual)
-Test the search functionality manually.
-
-```bash
-agents rag search "How do I configure the agent?"
-```
-
-#### 3. Using RAG in Agents
-To enable an agent to use your embedded data, you must configure the `rag` tool.
-
-1.  **Create the agent**:
-    ```bash
-    agents add \
-      --name "researcher" \
-      --system-prompt "You are a helpful assistant. Use the rag tool to find information." \
-      --model "claude-sonnet-4-5-20250929" \
-      --tools "rag"
-    ```
-
-2.  **Configure the tool**:
-    The CLI `add` command doesn't yet support tool specific configuration. You must edit `~/.agents/config.yaml` to point the agent to your database.
-
-    Open the config file and update the `rag` tool entry for your agent:
-
-    ```yaml
-    agents:
-      researcher:
-        # ... other fields ...
-        tools:
-          - name: rag
-            config:
-              db_path: "agents.db"      # Path to the file created in step 1
-              embedding_dim: "2048"     # Default dimension
-    ```
-
-3.  **Engage**:
-    ```bash
-    agents engage researcher --prompt "What is in the documentation?"
-    ```
+For detailed setup instructions, see [RAG Setup Guide](docs/RAG_SETUP.md).
 
 ## Advanced Configuration
 

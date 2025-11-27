@@ -125,10 +125,14 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 		return nil, fmt.Errorf("failed to convert request: %w", err)
 	}
 
-	geminiRequest.GenerationConfig.ThinkingConfig = &ThinkingConfig{
-		IncludeThoughts: true,
-		ThinkingBudget:  100,
-		ThinkingLevel:   1,
+	geminiRequest.GenerationConfig = &GenerationConfig{
+		ThinkingConfig: &ThinkingConfig{
+			IncludeThoughts: true,
+			// ThinkingBudget:  100,
+			// ThinkingLevel:   1,
+		},
+		Temperature: 0.0,
+		// MaxOutputTokens: request.MaxTokens,
 	}
 
 	var response GenerateContentResponse
@@ -301,30 +305,24 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 	contentBlocks := []sdk.ResponseContentBlock{}
 
 	for _, part := range candidate.Content.Parts {
-		// Consolidate thought content
-		thought := part.Thought
-		if thought == "" {
-			if part.ThoughtContent != "" {
-				thought = part.ThoughtContent
-			} else if part.Reasoning != "" {
-				thought = part.Reasoning
-			} else if part.ReasoningContent != "" {
-				thought = part.ReasoningContent
-			}
-		}
-
-		if thought != "" {
+		if part.Thought {
 			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 				Type: sdk.ContentTypeThinking,
-				Text: thought,
+				Text: part.Text,
 			})
+
+			continue
 		}
+
 		if part.Text != "" {
 			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 				Type: sdk.ContentTypeText,
 				Text: part.Text,
 			})
+
+			continue
 		}
+
 		if part.FunctionCall != nil {
 			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 				Type:             sdk.ContentTypeToolUse,
@@ -333,6 +331,8 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 				Input:            part.FunctionCall.Args,
 				ThoughtSignature: part.ThoughtSignature,
 			})
+
+			continue
 		}
 	}
 

@@ -51,7 +51,7 @@ func (a *AI) Chat(message string) (string, error) {
 
 	if message == "" {
 		fmt.Print("\n> ")
-		input, err := utils.ReadMultilineInput()
+		input, err := utils.ReadUserInput()
 		if err != nil {
 			return "", fmt.Errorf("error reading input: %w", err)
 		}
@@ -89,7 +89,7 @@ func (a *AI) Chat(message string) (string, error) {
 		// Prompt for next user input
 		fmt.Print("\n> ")
 		var nextMessage string
-		if nextMessage, err = utils.ReadMultilineInput(); err != nil {
+		if nextMessage, err = utils.ReadUserInput(); err != nil {
 			return "", fmt.Errorf("error reading input: %w", err)
 		}
 
@@ -155,8 +155,11 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				})
 			case ContentTypeToolUse:
 				a.audit.LogEvent(audit.Event{
-					Type:         audit.FunctionCallEvent,
-					FunctionCall: block.Input,
+					Type: audit.FunctionCallEvent,
+					FunctionCall: functionCallAudit{
+						Name:  block.Name,
+						Input: block.Input,
+					},
 				})
 			}
 
@@ -184,8 +187,15 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 		// Print non-tool-use blocks
 		for _, block := range response.Content {
 			if block.Type == ContentTypeThinking {
-				color.New(color.FgHiBlack, color.Italic).Print("Thinking: ")
-				fmt.Println(block.Text)
+				color.New(color.FgHiBlue, color.Italic).Print("Thinking: ")
+				// Render markdown
+				out, err := glamour.Render(block.Text, "dark")
+				if err != nil {
+					// Fallback to plain text if rendering fails
+					fmt.Println(block.Text)
+				} else {
+					fmt.Print(out)
+				}
 				continue
 			}
 
@@ -281,10 +291,23 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 
 	for _, response := range toolResults {
 		a.audit.LogEvent(audit.Event{
-			Type:             audit.FunctionResponseEvent,
-			FunctionResponse: response.Content,
+			Type: audit.FunctionResponseEvent,
+			FunctionResponse: functionResponseAudit{
+				Name:     response.ToolUseID,
+				Response: response.Content,
+			},
 		})
 	}
 
 	return toolResults, nil
+}
+
+type functionCallAudit struct {
+	Name  string `json:"name"`
+	Input any    `json:"input"`
+}
+
+type functionResponseAudit struct {
+	Name     string `json:"name"`
+	Response any    `json:"response"`
 }

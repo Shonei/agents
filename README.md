@@ -37,14 +37,16 @@ You need to provide API keys for the models you intend to use. You can set them 
 
 ### Audit Logging
 
-The CLI supports audit logging to help you understand and debug agent conversations. You can enable it in the config file:
+The CLI supports audit logging to help you understand and debug agent conversations. By default, this is disabled. To enable it, add the `audit` section to your `~/.agents/config.yaml`:
 
 ```yaml
 audit:
   enabled: true
   type: file
-  path: ./audit
+  path: /absolute/path/to/audit/dir
 ```
+
+**Note:** The directory specified in `path` must exist. Use an absolute path to ensure logs are always written to the same location regardless of your current working directory.
 
 ## Usage
 

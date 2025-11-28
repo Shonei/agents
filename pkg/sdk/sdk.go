@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Shonei/agents/pkg/sdk/audit"
-	"github.com/Shonei/agents/pkg/utils"
 	"github.com/charmbracelet/glamour"
 	"github.com/fatih/color"
+
+	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk/audit"
+	"github.com/Shonei/agents/pkg/utils"
 )
 
 // AI is an agentic wrapper for the Agent
@@ -24,7 +26,7 @@ type AI struct {
 type AITool interface {
 	Name() string
 	Description() string
-	Init(config map[string]string)
+	Init(config map[string]string, configFactory *config.ConfigFactory)
 	InputSchema() map[string]interface{}
 	Call(input map[string]interface{}) (interface{}, error)
 }
@@ -196,6 +198,7 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				} else {
 					fmt.Print(out)
 				}
+
 				continue
 			}
 

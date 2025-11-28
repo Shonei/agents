@@ -3,11 +3,11 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Shonei/agents/pkg/sdk"
-	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -48,7 +48,6 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	}
 
 	apiKey := a.configFactory.GetAPIKey(agent)
-	geminiKey := a.configFactory.GetGeminiAPIKey()
 
 	// Initialize the agent
 	ai := modelFactory(agent, apiKey, audit.NewAudit(a.configFactory.Config.AuditConfig))
@@ -64,9 +63,8 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 				if toolName.Config == nil {
 					toolName.Config = make(map[string]string)
 				}
-				toolName.Config["gemini_api_key"] = geminiKey
 
-				tool.Init(toolName.Config)
+				tool.Init(toolName.Config, a.configFactory)
 				ai.RegisterTool(tool)
 
 				break

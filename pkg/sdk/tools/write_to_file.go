@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/fatih/color"
 
+	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -23,7 +24,7 @@ func (b *WriteToFileTool) Description() string {
 	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed. This can also be used to overwrite existing files. By default the tool will not overwrite existing files. To overwrite the file set the force parameter to true."
 }
 
-func (b *WriteToFileTool) Init(config map[string]string) {
+func (b *WriteToFileTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (b *WriteToFileTool) InputSchema() map[string]interface{} {

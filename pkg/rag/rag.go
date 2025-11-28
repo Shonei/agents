@@ -3,8 +3,8 @@ package rag
 import (
 	"fmt"
 
-	"github.com/Shonei/agents/pkg/rag/storage"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
+	"github.com/Shonei/agents/pkg/storage"
 )
 
 type RAG struct {

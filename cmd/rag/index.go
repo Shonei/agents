@@ -51,7 +51,7 @@ func (r *indexCommand) RunIndex(cmd *cobra.Command, args []string) {
 	storeName := r.dirPath
 	store := r.configFactory.GetDB()
 
-	files, err := utils.CollectFiles(r.dirPath, false)
+	files, err := utils.CollectFiles(r.dirPath, true)
 	if err != nil {
 		utils.NewExitError().WithMessage("failed to collect files").WithReason(err).Done()
 	}
@@ -64,28 +64,38 @@ func (r *indexCommand) RunIndex(cmd *cobra.Command, args []string) {
 	)
 
 	for _, file := range files {
-		fmt.Fprintf(cmd.OutOrStdout(), "Embedded file %s into RAG\n", file.Path)
-
-		fileMeta := map[string]string{
-			"path": file.Path,
-			"size": fmt.Sprintf("%d", len(file.Content)),
-			"ext":  filepath.Ext(file.Path),
-		}
-
-		vec, err := g.Embedding(file.Content)
+		fullPath := filepath.Join(r.dirPath, file.Path)
+		chunks, err := utils.Chunk(fullPath)
 		if err != nil {
-			utils.NewExitError().WithMessage("failed to create embedding").WithReason(err).Done()
+			fmt.Fprintf(cmd.OutOrStdout(), "Failed to chunk file %s: %v\n", file.Path, err)
+			continue
 		}
 
-		doc := &storage.Document{
-			Content: file.Content,
-			Meta:    fileMeta,
-			Store:   storeName,
-			Vec:     vec,
-		}
+		for i, chunk := range chunks {
+			fmt.Fprintf(cmd.OutOrStdout(), "Embedded file %s chunk %d into RAG\n", file.Path, i)
 
-		if err := store.AddDocument(doc); err != nil {
-			utils.NewExitError().WithMessage("failed to store document").WithReason(err).Done()
+			fileMeta := map[string]string{
+				"path":  file.Path,
+				"size":  fmt.Sprintf("%d", len(chunk)),
+				"ext":   filepath.Ext(file.Path),
+				"chunk": fmt.Sprintf("%d", i),
+			}
+
+			vec, err := g.Embedding(chunk)
+			if err != nil {
+				utils.NewExitError().WithMessage("failed to create embedding").WithReason(err).Done()
+			}
+
+			doc := &storage.Document{
+				Content: chunk,
+				Meta:    fileMeta,
+				Store:   storeName,
+				Vec:     vec,
+			}
+
+			if err := store.AddDocument(doc); err != nil {
+				utils.NewExitError().WithMessage("failed to store document").WithReason(err).Done()
+			}
 		}
 	}
 }

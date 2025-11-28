@@ -84,7 +84,7 @@ func (s *Storage) Search(searchVec []float32, store string, limit int) ([]Docume
 	selectQuery := `SELECT  meta, content, vec, document_store, array_distance(vec, ?::FLOAT[%d]) AS distance
 		FROM documents
 		WHERE document_store = ?
-		ORDER BY array_distance(vec, ?::FLOAT[%d]) DESC
+		ORDER BY array_distance(vec, ?::FLOAT[%d]) ASC
 		LIMIT ?;`
 
 	stmt := fmt.Sprintf(selectQuery, s.vecSize, s.vecSize)

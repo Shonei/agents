@@ -11,6 +11,12 @@ type Document struct {
 	Vec     []float32
 	Meta    map[string]string
 	Content string
+	Store   string
+}
+
+type Store struct {
+	Name          string
+	DocumentCount int
 }
 
 func (s *Storage) AddDocument(d *Document) error {
@@ -23,19 +29,47 @@ func (s *Storage) AddDocument(d *Document) error {
 		return fmt.Errorf("failed to marshal meta: %w", err)
 	}
 
-	insertQuery := `INSERT INTO documents (meta, content, vec) 
-		VALUES (?, ?, ?::FLOAT[%d]);`
+	insertQuery := `INSERT INTO documents (document_store, meta, content, vec) 
+		VALUES (?, ?, ?, ?::FLOAT[%d]);`
 
 	query := fmt.Sprintf(insertQuery, s.vecSize)
 
-	if _, err := s.goquDB.Exec(query, string(metaJSON), d.Content, d.Vec); err != nil {
+	if _, err := s.goquDB.Exec(d.Store, query, string(metaJSON), d.Content, d.Vec); err != nil {
 		return fmt.Errorf("failed to insert document: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Storage) Search(searchVec []float32, limit int) ([]Document, error) {
+func (s *Storage) ListStores() ([]Store, error) {
+	ds := s.goquDB.From("documents").Select("document_store", "count(*) as document_count").GroupBy("document_store")
+
+	var rows []struct {
+		Name          string
+		DocumentCount int
+	}
+
+	if err := ds.ScanStructs(&rows); err != nil {
+		return nil, fmt.Errorf("failed to scan stores: %w", err)
+	}
+
+	stores := make([]Store, len(rows))
+	for i, r := range rows {
+		stores[i] = Store{
+			Name:          r.Name,
+			DocumentCount: r.DocumentCount,
+		}
+	}
+
+	return stores, nil
+}
+
+func (s *Storage) DeleteStore(store string) error {
+	_, err := s.goquDB.Exec("DELETE FROM documents WHERE document_store = ?", store)
+	return err
+}
+
+func (s *Storage) Search(searchVec []float32, store string, limit int) ([]Document, error) {
 	if len(searchVec) != s.vecSize {
 		return nil, fmt.Errorf("query vector has length %d, expected %d", len(searchVec), s.vecSize)
 	}
@@ -44,14 +78,15 @@ func (s *Storage) Search(searchVec []float32, limit int) ([]Document, error) {
 		return []Document{}, nil
 	}
 
-	selectQuery := `SELECT  meta, content, vec 
+	selectQuery := `SELECT  meta, content, vec, document_store 
 		FROM documents
+		WHERE document_store = ?
 		ORDER BY array_distance(vec, ?::FLOAT[%d])
 		LIMIT ?;`
 
 	stmt := fmt.Sprintf(selectQuery, s.vecSize)
 
-	rows, err := s.goquDB.Query(stmt, searchVec, limit)
+	rows, err := s.goquDB.Query(stmt, store, searchVec, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}

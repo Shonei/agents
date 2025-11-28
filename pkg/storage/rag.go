@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -9,59 +8,6 @@ import (
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
-
-type Storage struct {
-	sql     *sql.DB
-	vecSize int
-}
-
-func NewRAG(name string, vecSize int) (*Storage, error) {
-	if vecSize <= 0 {
-		return nil, fmt.Errorf("vecSize must be positive")
-	}
-
-	db, err := sql.Open("duckdb", name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-
-	// Load the VSS extension for vector similarity search.
-	if _, err = db.Exec("INSTALL vss; LOAD vss;"); err != nil {
-		_ = db.Close()
-
-		return nil, fmt.Errorf("failed to load vss extension: %w", err)
-	}
-
-	// Enable persisting the vector index on disk
-	if _, err = db.Exec("SET hnsw_enable_experimental_persistence = True"); err != nil {
-		_ = db.Close()
-
-		return nil, fmt.Errorf("failed to load vss extension: %w", err)
-	}
-
-	// Create a table to store documents and their embedding vectors.
-	createTable := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS documents (
-		meta TEXT,
-		content TEXT,
-		vec FLOAT[%d]
-	);`, vecSize)
-	if _, err = db.Exec(createTable); err != nil {
-		_ = db.Close()
-
-		return nil, fmt.Errorf("failed to create documents table: %w", err)
-	}
-
-	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_documents_vec ON documents USING HNSW (vec) WITH (metric = 'cosine');`); err != nil {
-		_ = db.Close()
-
-		return nil, fmt.Errorf("failed to create HNSW index: %w", err)
-	}
-
-	return &Storage{
-		sql:     db,
-		vecSize: vecSize,
-	}, nil
-}
 
 type Document struct {
 	Vec     []float32

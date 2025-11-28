@@ -1,6 +1,6 @@
 package rag
 
-import "github.com/Shonei/agents/pkg/rag/storage"
+import "github.com/Shonei/agents/pkg/storage"
 
 // Search embeds the query using the Gemini agent and searches the underlying
 // storage, returning the top-k most similar documents.

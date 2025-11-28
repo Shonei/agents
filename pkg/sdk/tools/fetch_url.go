@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/Shonei/agents/pkg/config"
 
 	"github.com/Shonei/agents/pkg/utils"
 )
@@ -21,7 +22,7 @@ func (f *FetchURLTool) Description() string {
 	return "Fetches the content of a URL and returns it as text. Useful for reading web pages or documentation."
 }
 
-func (f *FetchURLTool) Init(config map[string]string) {
+func (f *FetchURLTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (f *FetchURLTool) InputSchema() map[string]interface{} {

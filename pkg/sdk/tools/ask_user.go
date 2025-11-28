@@ -3,6 +3,7 @@ package tools
 import (
 	"fmt"
 
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/utils"
 	"github.com/fatih/color"
 )
@@ -18,7 +19,7 @@ func (a *AskUserTool) Description() string {
 	return "Asks the user a question and waits for their response. Use this when you need clarification or more information."
 }
 
-func (a *AskUserTool) Init(config map[string]string) {
+func (a *AskUserTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (a *AskUserTool) InputSchema() map[string]interface{} {

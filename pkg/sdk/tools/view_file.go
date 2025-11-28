@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 )
 
@@ -17,7 +18,7 @@ func (t *ViewFileTool) Description() string {
 	return "Reads a file and returns its contents with line numbers. Supports viewing a line range. Only works for files; use list_dir for directories."
 }
 
-func (t *ViewFileTool) Init(config map[string]string) {
+func (t *ViewFileTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (t *ViewFileTool) InputSchema() map[string]interface{} {

@@ -3,6 +3,8 @@ package tools
 import (
 	"fmt"
 	"time"
+
+	"github.com/Shonei/agents/pkg/config"
 )
 
 // TimeTool returns the current time
@@ -16,7 +18,7 @@ func (t *TimeTool) Description() string {
 	return "Returns the current date and time."
 }
 
-func (t *TimeTool) Init(config map[string]string) {
+func (t *TimeTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (t *TimeTool) InputSchema() map[string]interface{} {

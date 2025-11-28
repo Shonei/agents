@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 )
 
@@ -16,7 +17,7 @@ func (t *ListDirTool) Description() string {
 	return "Explores a directory and returns metadata for files and subdirectories, including relative paths, file types, sizes, and child counts. Can optionally recurse into subdirectories."
 }
 
-func (t *ListDirTool) Init(config map[string]string) {
+func (t *ListDirTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (t *ListDirTool) InputSchema() map[string]interface{} {

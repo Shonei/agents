@@ -7,6 +7,7 @@ import (
 
 	"github.com/fatih/color"
 
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/utils"
 )
@@ -22,7 +23,7 @@ func (b *BashTool) Description() string {
 	return "Given an input command, executes it and return the output and the exit code wrapped in XML tags"
 }
 
-func (b *BashTool) Init(config map[string]string) {
+func (b *BashTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (b *BashTool) InputSchema() map[string]interface{} {

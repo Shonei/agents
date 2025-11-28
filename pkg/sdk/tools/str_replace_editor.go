@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 )
 
@@ -25,7 +26,7 @@ func (t *StrReplaceEditorTool) Description() string {
 	return "Safely edits existing files using precise string replacement or insertion by line number. Never creates files and enforces <=150-line edits. Use view to inspect files before editing."
 }
 
-func (t *StrReplaceEditorTool) Init(config map[string]string) {
+func (t *StrReplaceEditorTool) Init(config map[string]string, _ *config.ConfigFactory) {
 }
 
 func (t *StrReplaceEditorTool) InputSchema() map[string]interface{} {

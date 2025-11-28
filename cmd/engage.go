@@ -64,7 +64,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 					toolName.Config = make(map[string]string)
 				}
 
-				tool.Init(toolName.Config)
+				tool.Init(toolName.Config, a.configFactory)
 				ai.RegisterTool(tool)
 
 				break

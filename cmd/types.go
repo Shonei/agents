@@ -33,7 +33,6 @@ func Models() map[string]func(config.Agent, string, *audit.Audit) *sdk.AI {
 
 func Tools() []sdk.AITool {
 	return []sdk.AITool{
-		&tools.CalculatorTool{},
 		&tools.BashTool{},
 		&tools.WriteToFileTool{},
 		&tools.StrReplaceEditorTool{},

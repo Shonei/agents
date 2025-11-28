@@ -20,7 +20,10 @@ func Test_initDB_and_run_migrations(t *testing.T) {
 
 	_, err = os.Stat(dbPath)
 	if os.IsNotExist(err) {
-		os.MkdirAll(filepath.Dir(dbPath), 0o700)
+		err := os.MkdirAll(filepath.Dir(dbPath), 0o700)
+		if err != nil {
+			t.Fatalf("failed to create test directory: %v", err)
+		}
 	} else if err != nil {
 		t.Fatalf("unable to check db stats: %v", err)
 	} else {

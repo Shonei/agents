@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"testing"
-
 )
 
 func TestReadMultilineInput(t *testing.T) {
@@ -51,13 +50,17 @@ func TestReadMultilineInput(t *testing.T) {
 			// Write input to pipe in a goroutine
 			go func() {
 				defer w.Close()
-				io.WriteString(w, tt.input)
+				_, err := io.WriteString(w, tt.input)
+				if err != nil {
+					t.Errorf("Failed to write to pipe: %v", err)
+				}
 			}()
 
 			// Call function
 			got, err := ReadMultilineInput()
 			if err != nil {
 				t.Errorf("ReadMultilineInput() error = %v", err)
+
 				return
 			}
 

@@ -63,11 +63,25 @@ func (s *Storage) Search(searchVec []float32, limit int) ([]Document, error) {
 		var (
 			metaAny map[string]any
 			content string
-			vec     []float32
+			vecAny  []any
 		)
 
-		if err := rows.Scan(&metaAny, &content, &vec); err != nil {
+		if err := rows.Scan(&metaAny, &content, &vecAny); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		vec := make([]float32, len(vecAny))
+		for i, v := range vecAny {
+			switch n := v.(type) {
+			case float32:
+				vec[i] = n
+			case float64:
+				vec[i] = float32(n)
+			case int64:
+				vec[i] = float32(n)
+			default:
+				return nil, fmt.Errorf("unexpected element type %T in vec column", v)
+			}
 		}
 
 		meta := map[string]string{}

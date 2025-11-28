@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Shonei/agents/pkg/sdk/audit"
-	"github.com/Shonei/agents/pkg/storage"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Shonei/agents/pkg/sdk/audit"
+	"github.com/Shonei/agents/pkg/storage"
 	"github.com/Shonei/agents/pkg/utils"
 )
 

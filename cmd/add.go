@@ -4,10 +4,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/utils"
 )
 

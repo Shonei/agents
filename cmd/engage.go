@@ -3,11 +3,11 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Shonei/agents/pkg/sdk"
-	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/Shonei/agents/pkg/utils"
 )
 

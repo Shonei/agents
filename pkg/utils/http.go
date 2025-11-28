@@ -215,9 +215,6 @@ func (h *HTTPRequest) Do() error {
 		if h.retry != nil {
 			after, shouldRetry := h.retry(h.attempt, resp)
 			if shouldRetry {
-				// clear body
-				b = []byte{}
-
 				// sleep for the specified time
 				time.Sleep(time.Duration(after) * time.Second)
 

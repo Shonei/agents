@@ -3,9 +3,10 @@ package tools
 import (
 	"fmt"
 
+	"github.com/fatih/color"
+
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/utils"
-	"github.com/fatih/color"
 )
 
 // AskUserTool allows the agent to ask the user a question

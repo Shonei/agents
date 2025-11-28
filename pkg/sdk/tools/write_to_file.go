@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Shonei/agents/pkg/config"
-	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/fatih/color"
 
+	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/utils"
 )
 

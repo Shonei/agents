@@ -22,6 +22,7 @@ var registeredMigrations = []migrations{
 				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 				vec FLOAT[2048]
 			);`)
+
 			return err
 		},
 	},
@@ -29,6 +30,7 @@ var registeredMigrations = []migrations{
 		name: "create_documents_index",
 		run: func(db *goqu.Database) error {
 			_, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_documents_vec ON documents USING HNSW (vec) WITH (metric = 'cosine');`)
+
 			return err
 		},
 	},
@@ -36,6 +38,7 @@ var registeredMigrations = []migrations{
 		name: "create_documents_store_index",
 		run: func(db *goqu.Database) error {
 			_, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_documents_store ON documents (document_store, created_at);`)
+
 			return err
 		},
 	},

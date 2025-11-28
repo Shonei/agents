@@ -9,10 +9,11 @@ import (
 )
 
 type Document struct {
-	Vec     []float32
-	Meta    map[string]string
-	Content string
-	Store   string
+	Vec      []float32
+	Meta     map[string]string
+	Content  string
+	Store    string
+	Distance float32
 }
 
 type Store struct {
@@ -79,15 +80,15 @@ func (s *Storage) Search(searchVec []float32, store string, limit int) ([]Docume
 		return []Document{}, nil
 	}
 
-	selectQuery := `SELECT  meta, content, vec, document_store 
+	selectQuery := `SELECT  meta, content, vec, document_store, array_distance(vec, ?::FLOAT[%d]) AS distance
 		FROM documents
 		WHERE document_store = ?
-		ORDER BY array_distance(vec, ?::FLOAT[%d])
+		ORDER BY array_distance(vec, ?::FLOAT[%d]) DESC
 		LIMIT ?;`
 
-	stmt := fmt.Sprintf(selectQuery, s.vecSize)
+	stmt := fmt.Sprintf(selectQuery, s.vecSize, s.vecSize)
 
-	rows, err := s.goquDB.Query(stmt, store, searchVec, limit)
+	rows, err := s.goquDB.Query(stmt, searchVec, store, searchVec, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
@@ -97,12 +98,14 @@ func (s *Storage) Search(searchVec []float32, store string, limit int) ([]Docume
 	var results []Document
 	for rows.Next() {
 		var (
-			metaAny map[string]any
-			content string
-			vecAny  []any
+			metaAny   map[string]any
+			content   string
+			vecAny    []any
+			storeName string
+			distance  float32
 		)
 
-		if err := rows.Scan(&metaAny, &content, &vecAny); err != nil {
+		if err := rows.Scan(&metaAny, &content, &vecAny, &storeName, &distance); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
@@ -126,9 +129,11 @@ func (s *Storage) Search(searchVec []float32, store string, limit int) ([]Docume
 		}
 
 		results = append(results, Document{
-			Vec:     vec,
-			Meta:    meta,
-			Content: content,
+			Vec:      vec,
+			Meta:     meta,
+			Content:  content,
+			Store:    storeName,
+			Distance: distance,
 		})
 	}
 

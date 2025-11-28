@@ -78,7 +78,7 @@ func testSearchDocument(t *testing.T, store *Storage) {
 		testVec[i] = float32(i)
 	}
 
-	docs, err := store.Search(testVec, 10)
+	docs, err := store.Search(testVec, "", 10)
 	if err != nil {
 		t.Errorf("failed to search: %v", err)
 	}

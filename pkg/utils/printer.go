@@ -169,7 +169,9 @@ func printTableSlice(et reflect.Type, v reflect.Value) {
 	for i := 0; i < ln; i++ {
 		row := valueDeref(v.Index(i))
 		for _, h := range headers {
-			fmt.Fprintf(w, "%s\t", fieldAsString(row, h))
+			val := fieldAsString(row, h)
+			val = strings.ReplaceAll(val[0:min(len(val), 50)], "\n", "\\n")
+			fmt.Fprintf(w, "%s\t", val)
 		}
 
 		w.Write([]byte("\n")) //nolint:errcheck

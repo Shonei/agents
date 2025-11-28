@@ -25,7 +25,7 @@ func Execute() {
 	add := NewAdd(configFactory)
 	list := NewList(configFactory)
 	engage := NewEngage(configFactory)
-	rag := NewRAG()
+	rag := NewRAG(configFactory)
 	prompt := NewSystemPrompt(configFactory)
 
 	rootCmd.AddCommand(add)

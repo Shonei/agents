@@ -18,8 +18,10 @@ type indexCommand struct {
 }
 
 // NewIndexCommand implements the `agents rag index` command.
-func NewIndexCommand() *cobra.Command {
-	r := &indexCommand{}
+func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
+	r := &indexCommand{
+		configFactory: c,
+	}
 
 	cmd := &cobra.Command{
 		Use:   "index",

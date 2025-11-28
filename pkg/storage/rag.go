@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/doug-martin/goqu/v9"
 	_ "github.com/duckdb/duckdb-go/v2"
 )
 
@@ -34,7 +35,7 @@ func (s *Storage) AddDocument(d *Document) error {
 
 	query := fmt.Sprintf(insertQuery, s.vecSize)
 
-	if _, err := s.goquDB.Exec(d.Store, query, string(metaJSON), d.Content, d.Vec); err != nil {
+	if _, err := s.goquDB.Exec(query, d.Store, string(metaJSON), d.Content, d.Vec); err != nil {
 		return fmt.Errorf("failed to insert document: %w", err)
 	}
 
@@ -42,11 +43,11 @@ func (s *Storage) AddDocument(d *Document) error {
 }
 
 func (s *Storage) ListStores() ([]Store, error) {
-	ds := s.goquDB.From("documents").Select("document_store", "count(*) as document_count").GroupBy("document_store")
+	ds := s.goquDB.From(goqu.T("documents")).Select("document_store", goqu.COUNT("*").As("document_count")).GroupBy("document_store")
 
 	var rows []struct {
-		Name          string
-		DocumentCount int
+		Name          string `db:"document_store"`
+		DocumentCount int    `db:"document_count"`
 	}
 
 	if err := ds.ScanStructs(&rows); err != nil {

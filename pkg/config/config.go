@@ -153,7 +153,7 @@ func (c *ConfigFactory) SaveConfig() {
 
 func (c *ConfigFactory) GetDB() *storage.Storage {
 	if c.db == nil {
-		utils.NewExitError().WithMessage("DB not initialized").Done()
+		utils.NewExitError().WithMessage("DB not initialized, Did you remember to set 'db_path' in your config?").Done()
 	}
 
 	return c.db

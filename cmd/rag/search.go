@@ -39,7 +39,6 @@ func NewSearchCommand(c *config.ConfigFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search [query]",
 		Short: "Search a RAG store for relevant documents",
-		Args:  cobra.MaximumNArgs(1),
 		Run:   s.Run,
 	}
 
@@ -53,16 +52,10 @@ func NewSearchCommand(c *config.ConfigFactory) *cobra.Command {
 func (s *searchCommand) Run(cmd *cobra.Command, args []string) {
 	s.configFactory.LoadConfig()
 
-	var query string
-	if len(args) == 0 {
-		fmt.Print("Search query: ")
-		input, err := utils.ReadUserInput()
-		if err != nil {
-			utils.NewExitError().WithMessage("failed to read search query").WithReason(err).Done()
-		}
-		query = input
-	} else {
-		query = args[0]
+	fmt.Print("Search query: ")
+	query, err := utils.ReadUserInput()
+	if err != nil {
+		utils.NewExitError().WithMessage("failed to read search query").WithReason(err).Done()
 	}
 
 	if s.store == "" {
@@ -72,10 +65,12 @@ func (s *searchCommand) Run(cmd *cobra.Command, args []string) {
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to get current directory").WithReason(err).Done()
 		}
+
 		abs, err := filepath.Abs(cwd)
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to resolve current directory").WithReason(err).Done()
 		}
+
 		s.store = abs
 	}
 

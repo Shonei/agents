@@ -23,9 +23,10 @@ func NewListStoresCommand(c *config.ConfigFactory) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "stores",
-		Short: "List RAG stores in the local DB",
-		Run:   l.Run,
+		Use:     "list-stores",
+		Aliases: []string{"ls", "stores", "list"},
+		Short:   "List RAG stores in the local DB",
+		Run:     l.Run,
 	}
 
 	return cmd

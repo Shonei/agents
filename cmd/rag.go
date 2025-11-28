@@ -16,10 +16,12 @@ func NewRAG(c *config.ConfigFactory) *cobra.Command {
 	indexCommand := rag.NewIndexCommand(c)
 	storesCommand := rag.NewListStoresCommand(c)
 	searchCommand := rag.NewSearchCommand(c)
+	deleteStoreCommand := rag.NewDeleteStoreCommand(c)
 
 	cmd.AddCommand(indexCommand)
 	cmd.AddCommand(storesCommand)
 	cmd.AddCommand(searchCommand)
+	cmd.AddCommand(deleteStoreCommand)
 
 	return cmd
 }

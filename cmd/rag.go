@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/Shonei/agents/cmd/rag"
 	"github.com/Shonei/agents/pkg/config"
-	"github.com/spf13/cobra"
 )
 
 // NewRAG wires RAG-related subcommands under `agents rag`.

@@ -5,11 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/storage"
 	"github.com/Shonei/agents/pkg/utils"
-	"github.com/spf13/cobra"
 )
 
 type indexCommand struct {

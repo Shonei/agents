@@ -97,10 +97,10 @@ func testAddDocumentInvalidVector(t *testing.T, store *Storage) {
 	shortVec := make([]float32, SearchVectorSize-1)
 
 	d := &Document{
-		Vec:   shortVec,
-		Meta:  map[string]string{"test": "invalid"},
+		Vec:     shortVec,
+		Meta:    map[string]string{"test": "invalid"},
 		Content: "invalid",
-		Store: "store-invalid-add",
+		Store:   "store-invalid-add",
 	}
 
 	if err := store.AddDocument(d); err == nil {

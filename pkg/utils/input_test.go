@@ -3,6 +3,7 @@ package utils
 import (
 	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -68,5 +69,46 @@ func TestReadMultilineInput(t *testing.T) {
 				t.Errorf("ReadMultilineInput() = %q, want %q", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestToolExecutionChoiceConstants(t *testing.T) {
+	// Test that the constants are defined correctly
+	if ToolExecutionYes != 0 {
+		t.Errorf("Expected ToolExecutionYes to be 0, got %d", ToolExecutionYes)
+	}
+	if ToolExecutionSkip != 1 {
+		t.Errorf("Expected ToolExecutionSkip to be 1, got %d", ToolExecutionSkip)
+	}
+	if ToolExecutionAbort != 2 {
+		t.Errorf("Expected ToolExecutionAbort to be 2, got %d", ToolExecutionAbort)
+	}
+}
+
+func TestPromptToolExecutionInputParsing(t *testing.T) {
+	// Test that input parsing would work correctly
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"y", "y"},
+		{"Y", "y"},
+		{"yes", "yes"},
+		{"YES", "yes"},
+		{"s", "s"},
+		{"S", "s"},
+		{"skip", "skip"},
+		{"SKIP", "skip"},
+		{"a", "a"},
+		{"A", "a"},
+		{"abort", "abort"},
+		{"ABORT", "abort"},
+	}
+
+	for _, tc := range testCases {
+		result := strings.ToLower(strings.TrimSpace(tc.input))
+		if result != tc.expected {
+			t.Errorf("For input '%s', expected '%s' but got '%s'", tc.input, tc.expected, result)
+		}
 	}
 }

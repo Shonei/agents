@@ -2,7 +2,6 @@ package tools
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/fatih/color"
@@ -20,7 +19,7 @@ func (b *BashTool) Name() string {
 }
 
 func (b *BashTool) Description() string {
-	return "Given an input command, executes it and return the output and the exit code wrapped in XML tags"
+	return "Given an input command, executes it and return the output and the exit code wrapped in XML tags. The user will be prompted to confirm the execution and he can choose to skip it."
 }
 
 func (b *BashTool) Init(config map[string]string, _ *config.ConfigFactory) {
@@ -46,7 +45,19 @@ func (b *BashTool) Call(input map[string]interface{}) (interface{}, error) {
 		return "", sdk.NewAIError("command must be a string")
 	}
 
-	userAsk(command)
+	color.New(color.FgYellow, color.Bold).Println("\nYou are about to execute the following command:")
+	color.Cyan("  %s", command)
+	answer, _ := utils.AskUserConfirmation()
+	switch answer {
+	case utils.ToolExecutionYes:
+		// continue
+	case utils.ToolExecutionSkip:
+		return "<exitcode>1</exitcode><output>Skipped by user</output>", nil
+	case utils.ToolExecutionAbort:
+		utils.NewExitError().WithMessage("tool execution aborted by user").Done()
+	case utils.ToolExecutionUnknown:
+		utils.NewExitError().WithMessage("unknown user choice").Done()
+	}
 
 	// Execute the command
 	cmd := exec.Command("bash", "-c", command)
@@ -61,24 +72,4 @@ func (b *BashTool) Call(input map[string]interface{}) (interface{}, error) {
 	}
 
 	return fmt.Sprintf("<exitcode>0</exitcode><output>%s</output>", string(output)), nil
-}
-
-func userAsk(command string) {
-	// Ask end user for permission first
-	color.New(color.FgYellow, color.Bold).Println("\nYou are about to execute the following command:")
-	color.Cyan("  %s", command)
-	fmt.Print(color.New(color.Bold).Sprint("Do you want to continue? (y/N): "))
-
-	var answer string
-	_, err := fmt.Scanln(&answer)
-	if err != nil {
-		utils.NewExitError().WithMessage("failed to read user input").WithReason(err).Done()
-	}
-
-	if answer != "y" {
-		color.Red("user aborted")
-		os.Exit(0)
-	}
-
-	color.Green("Executing...\n\n")
 }

@@ -21,7 +21,7 @@ func (b *WriteToFileTool) Name() string {
 }
 
 func (b *WriteToFileTool) Description() string {
-	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed. This can also be used to overwrite existing files. By default the tool will not overwrite existing files. To overwrite the file set the force parameter to true."
+	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed. This can also be used to overwrite existing files. By default the tool will not overwrite existing files. To overwrite the file set the force parameter to true. The user will be prompted to confirm the execution and he can choose to skip it."
 }
 
 func (b *WriteToFileTool) Init(config map[string]string, _ *config.ConfigFactory) {
@@ -86,7 +86,25 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 		return "", sdk.NewAIError("file already exists, set force to true to overwrite the file content")
 	}
 
-	writeToFileAsk(toolInput.FilePath, toolInput.Force)
+	if toolInput.Force {
+		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create the following file:")
+	} else {
+		color.New(color.FgYellow, color.Bold).Println("\nYuou are about to create or overwrite the following file:")
+	}
+
+	color.Cyan("  %s", toolInput.FilePath)
+
+	answer, _ := utils.AskUserConfirmation()
+	switch answer {
+	case utils.ToolExecutionYes:
+		// continue
+	case utils.ToolExecutionSkip:
+		return "<exitcode>1</exitcode><output>Skipped by user</output>", nil
+	case utils.ToolExecutionAbort:
+		utils.NewExitError().WithMessage("tool execution aborted by user").Done()
+	case utils.ToolExecutionUnknown:
+		utils.NewExitError().WithMessage("unknown user choice").Done()
+	}
 
 	dir := filepath.Dir(toolInput.FilePath)
 
@@ -106,29 +124,6 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 	}
 
 	return fmt.Sprintf("<exitcode>0</exitcode><output>%s</output>", output), nil
-}
-
-func writeToFileAsk(filePath string, force bool) {
-	if force {
-		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create the following file:")
-	} else {
-		color.New(color.FgYellow, color.Bold).Println("\nYuou are about to create or overwrite the following file:")
-	}
-
-	color.Cyan("  %s", filePath)
-
-	fmt.Print(color.New(color.Bold).Sprint("Do you want to continue? (y/N): "))
-
-	var answer string
-	_, err := fmt.Scanln(&answer)
-	if err != nil {
-		utils.NewExitError().WithMessage("failed to read user input").WithReason(err).Done()
-	}
-
-	if answer != "y" {
-		color.Red("user aborted")
-		os.Exit(0)
-	}
 }
 
 func mapstruct(in map[string]interface{}, out interface{}) error {

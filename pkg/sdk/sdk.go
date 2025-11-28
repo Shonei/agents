@@ -253,8 +253,7 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 			color.New(color.FgCyan, color.Bold).Print("Tool Call: ")
 			color.Cyan("%s", tool.Name())
 			inputBytes, _ := json.Marshal(toolCall.Input)
-			color.Cyan("Tool Input:  %s\n\n", inputBytes[:min(len(inputBytes), 100)])
-			// color.Cyan("Tool Input:  %s\n\n", inputBytes)
+			color.Cyan("Tool Input:  %s\n", inputBytes[:min(len(inputBytes), 100)])
 
 			result, err := tool.Call(toolCall.Input)
 			if err != nil {

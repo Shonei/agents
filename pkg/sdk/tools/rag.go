@@ -1,11 +1,19 @@
 package tools
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/gemini"
+	"github.com/Shonei/agents/pkg/storage"
 )
 
 // RagTool is a tool for searching a RAG store
 type RagTool struct {
+	store  *storage.Storage
+	gemini *gemini.Agent
 }
 
 func (r *RagTool) Name() string {
@@ -13,59 +21,17 @@ func (r *RagTool) Name() string {
 }
 
 func (r *RagTool) Description() string {
-	return "The RAG tool allows you to search the local code base for relevant information. It will return the most relevant files and their paths and optionally the file content."
+	return "The RAG tool allows you to search the local codebase for relevant information. It will return the most relevant files and metadata associated with the files. The metadata will include the file path, size, and extension. So for large files you can avoid loading all of them into the context."
 }
 
-func (r *RagTool) Init(config map[string]string, _ *config.ConfigFactory) {
-	// Initialize configuration from the provided map. These keys are expected
-	// to be wired from the agent's YAML/tool config, e.g.:
-	//
-	//   tools:
-	//     - name: rag
-	//       config:
-	//         db_path: agents.db
-	//         embedding_dim: "2048"
-	//
-	// If values are missing we fall back to sensible defaults.
+func (r *RagTool) Init(_ map[string]string, c *config.ConfigFactory) {
+	r.store = c.GetDB()
 
-	// Default DB path used by the rag CLI command.
-	// dbPath := config["db_path"]
-	// if dbPath == "" {
-	// 	utils.NewExitError().WithMessage("db_path is required for RAG tool").Done()
-	// }
-	//
-	// dimStr, ok := config["embedding_dim"]
-	// if !ok || dimStr == "" {
-	// 	utils.NewExitError().WithMessage("embedding_dim is required for RAG tool").Done()
-	// }
-	//
-	// embeddingDim, err := strconv.Atoi(dimStr)
-	// if err != nil || embeddingDim <= 0 {
-	// 	utils.NewExitError().WithMessage("embedding_dim must be a positive integer").Done()
-	// }
-	//
-	// apiKey := config["gemini_api_key"]
-	// if apiKey == "" {
-	// 	utils.NewExitError().WithMessage("gemini_api_key is required for RAG tool").Done()
-	// }
-	//
-	// g := gemini.NewAgent(
-	// 	gemini.WithAPIKey(apiKey),
-	// 	gemini.WithEmbeddingDim(embeddingDim),
-	// )
-	//
-	// if _, err := os.Stat(dbPath); err != nil {
-	// 	utils.NewExitError().WithMessage("failed to stat RAG DB").WithReason(err).Done()
-	// }
-	//
-	// store, err := storage.NewRAG(dbPath, embeddingDim)
-	// if err != nil {
-	// 	utils.NewExitError().WithMessage("failed to initialize RAG storage").WithReason(err).Done()
-	// }
-	//
-	// r.DBPath = dbPath
-	// r.EmbeddingDim = embeddingDim
-	// r.rag = rag.NewRAG(g, store)
+	geminiKey := c.GetGeminiAPIKey()
+	r.gemini = gemini.NewAgent(
+		gemini.WithAPIKey(geminiKey),
+		gemini.WithEmbeddingDim(storage.SearchVectorSize),
+	)
 }
 
 func (r *RagTool) InputSchema() map[string]interface{} {
@@ -74,12 +40,16 @@ func (r *RagTool) InputSchema() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"search_query": map[string]interface{}{
 				"type":        "string",
-				"description": "The search query in natural language.",
+				"description": "The search query in natural language. The query will be embedded and compared against stored documents using vector similarity.",
 				"example":     "Where is the implementation of the function foo?",
 			},
 			"include_content": map[string]interface{}{
 				"type":        "boolean",
-				"description": "Whether to include the file content in the response. Defaults to false.",
+				"description": "Whether to include the file content in the response or just the metadata. Defaults to false. If you only include the metadata you can inspect the files before loading them into the context using other available tools.",
+			},
+			"result_limit": map[string]interface{}{
+				"type":        "integer",
+				"description": "The maximum number of results to return. Defaults to 5.",
 			},
 		},
 		"required": []interface{}{"search_query"},
@@ -89,8 +59,60 @@ func (r *RagTool) InputSchema() map[string]interface{} {
 type RagToolInput struct {
 	SearchQuery    string `json:"search_query"`
 	IncludeContent bool   `json:"include_content"`
+	ResultLimit    int    `json:"result_limit"`
+}
+
+type RagToolResult struct {
+	Distance float32           `json:"distance"`
+	Path     string            `json:"path"`
+	Content  string            `json:"content,omitempty"`
+	Meta     map[string]string `json:"meta"`
 }
 
 func (r *RagTool) Call(input map[string]interface{}) (interface{}, error) {
-	return "", nil
+	var in RagToolInput
+	if err := mapstruct(input, &in); err != nil {
+		return "", err
+	}
+
+	if in.SearchQuery == "" {
+		return "", sdk.NewAIError("search_query is required for rag search")
+	}
+
+	limit := in.ResultLimit
+	if limit <= 0 {
+		limit = 5
+	}
+
+	storeName, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	vec, err := r.gemini.Embedding(in.SearchQuery)
+	if err != nil {
+		return "", fmt.Errorf("failed to create embedding for query: %w", err)
+	}
+
+	results, err := r.store.Search(vec, storeName, limit)
+	if err != nil {
+		return "", fmt.Errorf("failed to search store: %w", err)
+	}
+
+	out := make([]RagToolResult, 0, len(results))
+	for _, d := range results {
+		res := RagToolResult{
+			Distance: d.Distance,
+			Path:     d.Meta["path"],
+			Meta:     d.Meta,
+		}
+
+		if in.IncludeContent {
+			res.Content = d.Content
+		}
+
+		out = append(out, res)
+	}
+
+	return out, nil
 }

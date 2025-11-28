@@ -2,8 +2,11 @@ package utils
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 // ReadMultilineInput reads input from stdin until an empty line is entered.
@@ -33,4 +36,44 @@ func ReadUserInput() (string, error) {
 	input := scanner.Text()
 
 	return input, scanner.Err()
+}
+
+// ToolExecutionChoice represents the user's choice for tool execution
+type ToolExecutionChoice int
+
+const (
+	ToolExecutionUnknown ToolExecutionChoice = iota
+	ToolExecutionYes
+	ToolExecutionSkip
+	ToolExecutionAbort
+)
+
+// AskUserConfirmation prompts the user for confirmation to execute a tool
+func AskUserConfirmation() (ToolExecutionChoice, error) {
+	color.New(color.FgYellow, color.Bold).Print("Execute this tool? ")
+	color.New(color.FgYellow, color.Bold).Print("[Y]es / [S]kip / [A]bort: ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	input := strings.ToLower(strings.TrimSpace(scanner.Text()))
+
+	if err := scanner.Err(); err != nil {
+		return ToolExecutionAbort, err
+	}
+
+	answer := ToolExecutionUnknown
+
+	switch input {
+	case "y", "yes":
+		answer = ToolExecutionYes
+	case "s", "skip":
+		answer = ToolExecutionSkip
+	case "a", "abort":
+		answer = ToolExecutionAbort
+	}
+
+	// I just want a new line after this
+	fmt.Println()
+
+	return answer, nil
 }

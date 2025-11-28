@@ -68,6 +68,7 @@ func (s *Storage) ListStores() ([]Store, error) {
 
 func (s *Storage) DeleteStore(store string) error {
 	_, err := s.goquDB.Exec("DELETE FROM documents WHERE document_store = ?", store)
+
 	return err
 }
 

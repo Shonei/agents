@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/doug-martin/goqu/v9"
@@ -42,18 +41,14 @@ var registeredMigrations = []migrations{
 	},
 }
 
-func InitDatabase(db *sql.DB) error {
+func initDatabase(db *goqu.Database) error {
 	// Load the VSS extension for vector similarity search.
 	if _, err := db.Exec("INSTALL vss; LOAD vss;"); err != nil {
-		_ = db.Close()
-
 		return fmt.Errorf("failed to load vss extension: %w", err)
 	}
 
 	// Enable persisting the vector index on disk
 	if _, err := db.Exec("SET hnsw_enable_experimental_persistence = True"); err != nil {
-		_ = db.Close()
-
 		return fmt.Errorf("failed to load vss extension: %w", err)
 	}
 
@@ -69,10 +64,8 @@ func InitDatabase(db *sql.DB) error {
 	return nil
 }
 
-func RunMigrations(db *sql.DB) error {
-	goquDB := goqu.New("duckdb", db)
-
-	executed, err := getExecutedMigrations(goquDB)
+func runMigrations(db *goqu.Database) error {
+	executed, err := getExecutedMigrations(db)
 	if err != nil {
 		return err
 	}
@@ -94,11 +87,11 @@ func RunMigrations(db *sql.DB) error {
 			continue
 		}
 
-		if err := migration.run(goquDB); err != nil {
+		if err := migration.run(db); err != nil {
 			return fmt.Errorf("failed to run migration %q: %w", migration.name, err)
 		}
 
-		if err := addMigration(goquDB, migration.name); err != nil {
+		if err := addMigration(db, migration.name); err != nil {
 			return fmt.Errorf("failed to record migration %q: %w", migration.name, err)
 		}
 	}

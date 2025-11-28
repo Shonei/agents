@@ -3,8 +3,6 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 
 	_ "github.com/duckdb/duckdb-go/v2"
 )
@@ -15,9 +13,9 @@ type Document struct {
 	Content string
 }
 
-func (r *Storage) AddDocument(d *Document) error {
-	if len(d.Vec) != r.vecSize {
-		return fmt.Errorf("vector has length %d, expected %d", len(d.Vec), r.vecSize)
+func (s *Storage) AddDocument(d *Document) error {
+	if len(d.Vec) != s.vecSize {
+		return fmt.Errorf("vector has length %d, expected %d", len(d.Vec), s.vecSize)
 	}
 
 	metaJSON, err := json.Marshal(d.Meta)
@@ -25,67 +23,56 @@ func (r *Storage) AddDocument(d *Document) error {
 		return fmt.Errorf("failed to marshal meta: %w", err)
 	}
 
-	vecLiteral := formatFloat32ArrayLiteral(d.Vec)
 	insertQuery := `INSERT INTO documents (meta, content, vec) 
-		VALUES (?, ?, %s::FLOAT[%d]);`
+		VALUES (?, ?, ?::FLOAT[%d]);`
 
-	query := fmt.Sprintf(insertQuery, vecLiteral, r.vecSize)
+	query := fmt.Sprintf(insertQuery, s.vecSize)
 
-	if _, err := r.sql.Exec(query, string(metaJSON), d.Content); err != nil {
+	if _, err := s.goquDB.Exec(query, string(metaJSON), d.Content, d.Vec); err != nil {
 		return fmt.Errorf("failed to insert document: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Storage) Search(query []float32, limit int) ([]Document, error) {
-	if r == nil || r.sql == nil {
-		return nil, fmt.Errorf("Storage is not initialized")
+func (s *Storage) Search(searchVec []float32, limit int) ([]Document, error) {
+	if len(searchVec) != s.vecSize {
+		return nil, fmt.Errorf("query vector has length %d, expected %d", len(searchVec), s.vecSize)
 	}
-	if len(query) != r.vecSize {
-		return nil, fmt.Errorf("query vector has length %d, expected %d", len(query), r.vecSize)
-	}
+
 	if limit <= 0 {
 		return []Document{}, nil
 	}
 
-	vecLiteral := formatFloat32ArrayLiteral(query)
-
-	selectQuery := `SELECT  meta, content, vec::TEXT 
+	selectQuery := `SELECT  meta, content, vec 
 		FROM documents
-		ORDER BY array_distance(vec, %s::FLOAT[%d])
+		ORDER BY array_distance(vec, ?::FLOAT[%d])
 		LIMIT ?;`
 
-	stmt := fmt.Sprintf(selectQuery, vecLiteral, r.vecSize)
+	stmt := fmt.Sprintf(selectQuery, s.vecSize)
 
-	rows, err := r.sql.Query(stmt, limit)
+	rows, err := s.goquDB.Query(stmt, searchVec, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute search query: %w", err)
 	}
+
 	defer rows.Close()
 
 	var results []Document
 	for rows.Next() {
 		var (
-			metaStr string
+			metaAny map[string]any
 			content string
-			vecStr  string
+			vec     []float32
 		)
 
-		if err := rows.Scan(&metaStr, &content, &vecStr); err != nil {
+		if err := rows.Scan(&metaAny, &content, &vec); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		meta := map[string]string{}
-		if metaStr != "" {
-			if err := json.Unmarshal([]byte(metaStr), &meta); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal meta: %w", err)
-			}
-		}
-
-		vec, err := parseFloat32ArrayLiteral(vecStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse vector: %w", err)
+		for k, v := range metaAny {
+			meta[k] = fmt.Sprintf("%v", v)
 		}
 
 		results = append(results, Document{
@@ -100,53 +87,4 @@ func (r *Storage) Search(query []float32, limit int) ([]Document, error) {
 	}
 
 	return results, nil
-}
-
-// formatFloat32ArrayLiteral converts a []float32 into a DuckDB FLOAT array literal
-// like [1.0, 2.0, 3.0].
-func formatFloat32ArrayLiteral(vec []float32) string {
-	var b strings.Builder
-	b.WriteByte('[')
-	for i, f := range vec {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		b.WriteString(strconv.FormatFloat(float64(f), 'f', -1, 32))
-	}
-	b.WriteByte(']')
-
-	return b.String()
-}
-
-// parseFloat32ArrayLiteral parses a DuckDB array literal like "[1.0, 2.0, 3.0]"
-// into a []float32.
-func parseFloat32ArrayLiteral(s string) ([]float32, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return []float32{}, nil
-	}
-	if len(s) < 2 || s[0] != '[' || s[len(s)-1] != ']' {
-		return nil, fmt.Errorf("invalid array literal: %q", s)
-	}
-
-	inner := strings.TrimSpace(s[1 : len(s)-1])
-	if inner == "" {
-		return []float32{}, nil
-	}
-
-	parts := strings.Split(inner, ",")
-	res := make([]float32, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		v, err := strconv.ParseFloat(p, 32)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as float32: %w", p, err)
-		}
-		res = append(res, float32(v))
-	}
-
-	return res, nil
 }

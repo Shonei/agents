@@ -8,17 +8,15 @@ import (
 	"github.com/doug-martin/goqu/v9"
 )
 
+const SearchVectorSize = 2048
+
 type Storage struct {
-	sql     *sql.DB
 	goquDB  *goqu.Database
+	db      *sql.DB
 	vecSize int
 }
 
-func NewRAG(dbPath string, vecSize int) (*Storage, error) {
-	if vecSize <= 0 {
-		return nil, fmt.Errorf("vecSize must be positive")
-	}
-
+func NewStorage(dbPath string) (*Storage, error) {
 	if !filepath.IsAbs(dbPath) {
 		return nil, fmt.Errorf("dbPath must be absolute")
 	}
@@ -30,9 +28,23 @@ func NewRAG(dbPath string, vecSize int) (*Storage, error) {
 
 	goquDB := goqu.New("duckdb", db)
 
+	initErr := initDatabase(goquDB)
+	if initErr != nil {
+		return nil, fmt.Errorf("failed to init database: %w", initErr)
+	}
+
+	runErr := runMigrations(goquDB)
+	if runErr != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", runErr)
+	}
+
 	return &Storage{
-		sql:     db,
 		goquDB:  goquDB,
-		vecSize: vecSize,
+		db:      db,
+		vecSize: SearchVectorSize,
 	}, nil
+}
+
+func (s *Storage) Close() error {
+	return s.db.Close()
 }

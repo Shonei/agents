@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,24 +23,64 @@ func Test_initDB_and_run_migrations(t *testing.T) {
 		os.MkdirAll(filepath.Dir(dbPath), 0o700)
 	} else if err != nil {
 		t.Fatalf("unable to check db stats: %v", err)
-	}
-
-	// we start with a clean DB
-	if err == nil {
+	} else {
+		// we start with a clean DB
 		_ = os.Remove(dbPath)
 	}
 
-	db, err := sql.Open("duckdb", dbPath)
+	store, err := NewStorage(dbPath)
 	if err != nil {
-		t.Errorf("failed to open database: %v", err)
+		t.Fatalf("failed to create storage: %v", err)
 	}
 
-	if err := InitDatabase(db); err != nil {
-		t.Errorf("failed to init database: %v", err)
-		return
+	defer store.Close()
+
+	testCases := []struct {
+		name string
+		test func(*testing.T, *Storage)
+	}{
+		{"add_document", testAddDocument},
+		{"search_document", testSearchDocument},
 	}
 
-	if err := RunMigrations(db); err != nil {
-		t.Errorf("failed to run migrations: %v", err)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.test(t, store)
+		})
+	}
+}
+
+func testAddDocument(t *testing.T, store *Storage) {
+	testVec := make([]float32, SearchVectorSize)
+
+	for i := range testVec {
+		testVec[i] = float32(i)
+	}
+
+	d := &Document{
+		Vec:     testVec,
+		Meta:    map[string]string{"test": "test"},
+		Content: "test",
+	}
+
+	if err := store.AddDocument(d); err != nil {
+		t.Errorf("failed to add document: %v", err)
+	}
+}
+
+func testSearchDocument(t *testing.T, store *Storage) {
+	testVec := make([]float32, SearchVectorSize)
+
+	for i := range testVec {
+		testVec[i] = float32(i)
+	}
+
+	docs, err := store.Search(testVec, 10)
+	if err != nil {
+		t.Errorf("failed to search: %v", err)
+	}
+
+	if len(docs) != 1 {
+		t.Errorf("expected 1 result, got %d", len(docs))
 	}
 }

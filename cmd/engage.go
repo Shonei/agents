@@ -48,7 +48,6 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	}
 
 	apiKey := a.configFactory.GetAPIKey(agent)
-	geminiKey := a.configFactory.GetGeminiAPIKey()
 
 	// Initialize the agent
 	ai := modelFactory(agent, apiKey, audit.NewAudit(a.configFactory.Config.AuditConfig))
@@ -64,7 +63,6 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 				if toolName.Config == nil {
 					toolName.Config = make(map[string]string)
 				}
-				toolName.Config["gemini_api_key"] = geminiKey
 
 				tool.Init(toolName.Config)
 				ai.RegisterTool(tool)

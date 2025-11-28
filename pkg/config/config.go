@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Shonei/agents/pkg/sdk/audit"
+	"github.com/Shonei/agents/pkg/storage"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
@@ -50,6 +51,7 @@ type Config struct {
 	GeminiAPIKey string            `yaml:"gemini_api_key"`
 	Agents       map[string]Agent  `yaml:"agents"`
 	AuditConfig  audit.AuditConfig `yaml:"audit"`
+	DBPath       string            `yaml:"db_path"`
 }
 
 func NewConfigFactory() *ConfigFactory {
@@ -59,15 +61,12 @@ func NewConfigFactory() *ConfigFactory {
 type ConfigFactory struct {
 	configPath   string
 	outputFormat string
-	contextName  string
+	db           *storage.Storage
 	Config       *Config
 }
 
-const ContextFileName = ".agents"
-
 func (c *ConfigFactory) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&c.configPath, "config", "c", defaultConfigPath, "config file (default is "+defaultConfigPath+")")
-	flags.StringVarP(&c.contextName, "context", "x", "", "Load a specific context. If not set will use the default active one.")
 	flags.StringVarP(&c.outputFormat, "output", "o", "table", "output format (yaml, json, table)")
 }
 
@@ -83,6 +82,18 @@ func (c *ConfigFactory) LoadConfig() {
 		fmt.Fprintln(os.Stderr, fmt.Errorf("failed to load config: %v", err))
 		os.Exit(1)
 	}
+
+	if c.Config.DBPath == "" {
+		return
+	}
+
+	db, err := storage.NewStorage(c.Config.DBPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, fmt.Errorf("failed to open DB: %v", err))
+		os.Exit(1)
+	}
+
+	c.db = db
 }
 
 func (c *ConfigFactory) AddAgent(agent Agent) {
@@ -138,6 +149,14 @@ func (c *ConfigFactory) SaveConfig() {
 	if err != nil {
 		utils.NewExitError().WithMessage("unable to persist CLI config").WithReason(err).Done()
 	}
+}
+
+func (c *ConfigFactory) GetDB() *storage.Storage {
+	if c.db == nil {
+		utils.NewExitError().WithMessage("DB not initialized").Done()
+	}
+
+	return c.db
 }
 
 func (c *ConfigFactory) Print(resource any) {

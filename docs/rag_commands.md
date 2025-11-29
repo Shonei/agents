@@ -241,6 +241,9 @@ Stores are named using the **absolute path** of the directory being indexed. Thi
 - When searching without `--store`, the CLI uses the current directory's absolute path
 - This automatic naming ensures consistency between indexing and searching
 
+**Note on Reserved Stores**:
+- The store name `memory` is reserved for the `memory` tool used by agents. You may see this store listed if you use the memory tool, but you should generally manage it via the agent's tools rather than these CLI commands.
+
 ## Troubleshooting
 
 ### "DB not initialized, Did you remember to set 'db_path' in your config?"

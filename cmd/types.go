@@ -42,6 +42,7 @@ func Tools() []sdk.AITool {
 		&tools.FetchURLTool{},
 		&tools.AskUserTool{},
 		&tools.TimeTool{},
+		&tools.MemoryTool{},
 	}
 }
 

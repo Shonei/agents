@@ -33,7 +33,7 @@ func (u *User) Greet() {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
-	chunks, err := Chunk(tmpFile)
+	chunks, err := Chunk(tmpFile, ChunkingStrategyHeuristic)
 	if err != nil {
 		t.Fatalf("Chunk failed: %v", err)
 	}
@@ -98,7 +98,7 @@ Third paragraph.`
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
-	chunks, err := Chunk(tmpFile)
+	chunks, err := Chunk(tmpFile, ChunkingStrategyHeuristic)
 	if err != nil {
 		t.Fatalf("Chunk failed: %v", err)
 	}
@@ -112,5 +112,89 @@ Third paragraph.`
 	}
 	if chunks[1] != "Second paragraph." {
 		t.Errorf("unexpected chunk 1: %q", chunks[1])
+	}
+}
+
+func TestChunkNone(t *testing.T) {
+	content := "This is a\nfile content\nwith multiple lines."
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test_none.txt")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	chunks, err := Chunk(tmpFile, ChunkingStrategyNone)
+	if err != nil {
+		t.Fatalf("Chunk failed: %v", err)
+	}
+
+	if len(chunks) != 1 {
+		t.Errorf("expected 1 chunk, got %d", len(chunks))
+	}
+
+	if chunks[0] != content {
+		t.Errorf("expected chunk content to match file content")
+	}
+}
+
+func TestChunkFixedSize(t *testing.T) {
+	// Create content of 50 characters: "0123456789" repeated 5 times
+	content := ""
+	for i := 0; i < 5; i++ {
+		content += "0123456789"
+	}
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test_fixed.txt")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	chunks, err := Chunk(tmpFile, ChunkingStrategyFixedSize)
+	if err != nil {
+		t.Fatalf("Chunk failed: %v", err)
+	}
+
+	if len(chunks) != 1 {
+		t.Errorf("expected 1 chunk (since content < 2000), got %d", len(chunks))
+	}
+}
+
+func TestChunkFixedSizeLogic(t *testing.T) {
+	content := "012345678901234567890123456789" // 30 chars
+	size := 10
+	overlap := 5
+
+	chunks := chunkFixedSize(content, size, overlap)
+
+	expectedCount := 5
+	// 0: 0-10 "0123456789" (next 5)
+	// 1: 5-15 "5678901234" (next 10)
+	// 2: 10-20 "0123456789" (next 15)
+	// 3: 15-25 "5678901234" (next 20)
+	// 4: 20-30 "0123456789" (next 25)
+	// Loop check:
+	// start=20, end=30. chunk added. end==len(content) -> break.
+	// So 5 chunks.
+
+	if len(chunks) != expectedCount {
+		t.Errorf("expected %d chunks, got %d", expectedCount, len(chunks))
+		for i, c := range chunks {
+			t.Logf("Chunk %d: %q", i, c)
+		}
+	}
+
+	if len(chunks) > 0 {
+		expectedFirst := "0123456789"
+		if chunks[0] != expectedFirst {
+			t.Errorf("expected first chunk %q, got %q", expectedFirst, chunks[0])
+		}
+	}
+	
+	if len(chunks) > 1 {
+		expectedSecond := "5678901234"
+		if chunks[1] != expectedSecond {
+			t.Errorf("expected second chunk %q, got %q", expectedSecond, chunks[1])
+		}
 	}
 }

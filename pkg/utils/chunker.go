@@ -6,14 +6,40 @@ import (
 	"strings"
 )
 
-// Chunk reads a file and splits it into logical chunks based on heuristics.
+// ChunkingStrategy defines the strategy used for chunking files.
+type ChunkingStrategy string
+
+const (
+	// ChunkingStrategyNone reads the entire file as a single chunk.
+	ChunkingStrategyNone ChunkingStrategy = "none"
+	// ChunkingStrategyHeuristic splits the file based on heuristics (e.g. Go code structure or paragraphs).
+	ChunkingStrategyHeuristic ChunkingStrategy = "heuristic"
+	// ChunkingStrategyFixedSize splits the file into fixed-size chunks with overlap.
+	ChunkingStrategyFixedSize ChunkingStrategy = "fixed-size"
+)
+
+const (
+	DefaultChunkSize    = 2000
+	DefaultChunkOverlap = 200
+)
+
+// Chunk reads a file and splits it into logical chunks based on the provided strategy.
 // It returns the list of chunks or an error if the file cannot be read.
-func Chunk(path string) ([]string, error) {
+func Chunk(path string, strategy ChunkingStrategy) ([]string, error) {
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	content := string(contentBytes)
+
+	if strategy == ChunkingStrategyNone {
+		return []string{content}, nil
+	}
+
+	if strategy == ChunkingStrategyFixedSize {
+		return chunkFixedSize(content, DefaultChunkSize, DefaultChunkOverlap), nil
+	}
+
 	ext := filepath.Ext(path)
 
 	if ext == ".go" {
@@ -91,6 +117,32 @@ func chunkDefault(content string) []string {
 		if strings.TrimSpace(c) != "" {
 			chunks = append(chunks, c)
 		}
+	}
+	return chunks
+}
+
+func chunkFixedSize(content string, size, overlap int) []string {
+	if len(content) == 0 {
+		return []string{}
+	}
+	if len(content) <= size {
+		return []string{content}
+	}
+
+	var chunks []string
+	start := 0
+	for start < len(content) {
+		end := start + size
+		if end > len(content) {
+			end = len(content)
+		}
+		chunks = append(chunks, content[start:end])
+
+		if end == len(content) {
+			break
+		}
+
+		start += size - overlap
 	}
 	return chunks
 }

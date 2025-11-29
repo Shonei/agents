@@ -14,8 +14,9 @@ import (
 )
 
 type indexCommand struct {
-	configFactory *config.ConfigFactory
-	dirPath       string
+	configFactory    *config.ConfigFactory
+	dirPath          string
+	chunkingStrategy string
 }
 
 // NewIndexCommand implements the `agents rag index` command.
@@ -32,6 +33,7 @@ func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&r.dirPath, "dir", ".", "Path to the directory to index. Files in a .gitignore file will be ignored.")
+	flags.StringVar(&r.chunkingStrategy, "strategy", "none", "Chunking strategy to use (none, heuristic, fixed-size). Default is none.")
 
 	return cmd
 }
@@ -65,7 +67,7 @@ func (r *indexCommand) RunIndex(cmd *cobra.Command, args []string) {
 
 	for _, file := range files {
 		fullPath := filepath.Join(r.dirPath, file.Path)
-		chunks, err := utils.Chunk(fullPath)
+		chunks, err := utils.Chunk(fullPath, utils.ChunkingStrategy(r.chunkingStrategy))
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Failed to chunk file %s: %v\n", file.Path, err)
 			continue

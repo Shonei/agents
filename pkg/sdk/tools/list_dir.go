@@ -84,6 +84,10 @@ func (t *ListDirTool) Call(input map[string]interface{}) (interface{}, error) {
 
 	info, err := os.Stat(rootAbs)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return "", sdk.NewAIError(fmt.Sprintf("path does not exist: %s", rootAbs))
+		}
+
 		return "", fmt.Errorf("failed to stat path: %w", err)
 	}
 

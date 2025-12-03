@@ -8,3 +8,5 @@ agents.db.wal
 main
 audit/
 pkg/storage/testfiles/test.*
+audit-ui/node_modules/
+audit-ui/dist/

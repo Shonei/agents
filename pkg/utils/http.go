@@ -40,7 +40,7 @@ type HTTPBuilder struct {
 func NewHTTPBuilder(url string) *HTTPBuilder {
 	return &HTTPBuilder{
 		client: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 5 * time.Minute,
 		},
 		URL: url,
 	}

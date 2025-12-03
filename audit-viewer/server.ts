@@ -66,16 +66,16 @@ const server = Bun.serve({
 
     // Serve the React app
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(await readFile(join(import.meta.dir, "index.html")), {
+      return new Response(await readFile(join(import.meta.dir, "index-improved.html")), {
         headers: { "Content-Type": "text/html" },
       });
     }
 
     // Serve the bundled React app
-    if (url.pathname === "/app.tsx") {
-      const file = Bun.file(join(import.meta.dir, "app.tsx"));
+    if (url.pathname === "/app-improved.tsx") {
+      const file = Bun.file(join(import.meta.dir, "app-improved.tsx"));
       const transpiled = await Bun.build({
-        entrypoints: [join(import.meta.dir, "app.tsx")],
+        entrypoints: [join(import.meta.dir, "app-improved.tsx")],
         format: "esm",
         target: "browser",
       });

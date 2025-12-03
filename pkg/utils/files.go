@@ -9,6 +9,40 @@ import (
 	"github.com/svent/sift/gitignore"
 )
 
+// skipDirs contains directory names that should always be skipped during file collection.
+var skipDirs = map[string]bool{
+	".git":           true,
+	"node_modules":   true,
+	".svn":           true,
+	".hg":            true,
+	"vendor":         true,
+	"__pycache__":    true,
+	".venv":          true,
+	"venv":           true,
+	".idea":          true,
+	".vscode":        true,
+	"dist":           true,
+	"build":          true,
+	".next":          true,
+	".nuxt":          true,
+	"target":         true,
+	".terraform":     true,
+	".cache":         true,
+	"coverage":       true,
+	".nyc_output":    true,
+	".pytest_cache":  true,
+	".mypy_cache":    true,
+	".tox":           true,
+	"eggs":           true,
+	".eggs":          true,
+	"*.egg-info":     true,
+	".gradle":        true,
+	".m2":            true,
+	"Pods":           true,
+	".dart_tool":     true,
+	".pub-cache":     true,
+}
+
 type File struct {
 	Path    string
 	Content string
@@ -16,7 +50,7 @@ type File struct {
 
 // CollectFiles walks the provided fullPath directory and returns files suitable for upload.
 // It respects .gitignore rules in that directory. If dryRun is true, file contents are omitted.
-// It explicitly ignored the .git directory.
+// It skips common directories like .git, node_modules, vendor, etc.
 func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 	checker := gitignore.NewChecker()
 
@@ -51,7 +85,7 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 		}
 
 		if entry.IsDir() {
-			if entry.Name() == ".git" {
+			if skipDirs[entry.Name()] {
 				return filepath.SkipDir
 			}
 

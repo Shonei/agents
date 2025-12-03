@@ -20,7 +20,7 @@ func (m *MemoryTool) Name() string {
 }
 
 func (m *MemoryTool) Description() string {
-	return "The memory tool allows you to store and retrieve information from a persistent memory store. Use 'store' to save content and 'retrieve' to find relevant information."
+	return "The memory tool allows you to store and retrieve information from a persistent memory store. Use 'store' to save content and 'retrieve' to find relevant information. You can store any relevant information you want to remember. And you should store information you are asked to store."
 }
 
 func (m *MemoryTool) Init(_ map[string]string, c *config.ConfigFactory) {
@@ -43,11 +43,11 @@ func (m *MemoryTool) InputSchema() map[string]interface{} {
 			},
 			"content": map[string]interface{}{
 				"type":        "string",
-				"description": "The content to store. Required for 'store' command.",
+				"description": "The content to store. Required for 'store' command. Only used for 'store' command. This will be embedded and compared against search queries using vector similarity.",
 			},
 			"query": map[string]interface{}{
 				"type":        "string",
-				"description": "The query to search for. Required for 'retrieve' command.",
+				"description": "The query to search for. Required for 'retrieve' command. The query will be embedded and compared against stored documents using vector similarity.",
 			},
 		},
 		"required": []interface{}{"command"},

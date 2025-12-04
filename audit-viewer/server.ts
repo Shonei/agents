@@ -1,5 +1,5 @@
-import { readdir, readFile } from "fs/promises";
-import { join } from "path";
+import {readdir, readFile} from "fs/promises";
+import {join} from "path";
 
 const AUDIT_DIR = join(process.cwd(), "..", "audit");
 const PORT = 3000;
@@ -66,16 +66,16 @@ const server = Bun.serve({
 
     // Serve the React app
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(await readFile(join(import.meta.dir, "index-improved.html")), {
+      return new Response(await readFile(join(import.meta.dir, "index.html")), {
         headers: { "Content-Type": "text/html" },
       });
     }
 
     // Serve the bundled React app
-    if (url.pathname === "/app-improved.tsx") {
-      const file = Bun.file(join(import.meta.dir, "app-improved.tsx"));
+    if (url.pathname === "/app.tsx") {
+      const file = Bun.file(join(import.meta.dir, "app.tsx"));
       const transpiled = await Bun.build({
-        entrypoints: [join(import.meta.dir, "app-improved.tsx")],
+        entrypoints: [join(import.meta.dir, "app.tsx")],
         format: "esm",
         target: "browser",
       });

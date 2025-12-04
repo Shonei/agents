@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audit Viewer</title>
+  <title>Audit Viewer - Enhanced</title>
   <style>
     * {
       margin: 0;
@@ -124,6 +124,11 @@
       background: #2b2119;
     }
 
+    .message-block.function-response {
+      border-left-color: #4ac98d;
+      background: #19312b;
+    }
+
     .message-type {
       font-size: 11px;
       text-transform: uppercase;
@@ -131,6 +136,77 @@
       letter-spacing: 0.5px;
       margin-bottom: 10px;
       opacity: 0.7;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tool-icon {
+      font-size: 14px;
+    }
+
+    .response-meta {
+      margin-left: auto;
+      font-size: 10px;
+      opacity: 0.6;
+      text-transform: none;
+      font-weight: normal;
+    }
+
+    .function-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .collapse-btn, .show-raw-btn, .expand-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e0e0e0;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+
+    .collapse-btn:hover, .show-raw-btn:hover, .expand-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .expand-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+    }
+
+    .show-raw-btn {
+      margin-top: 12px;
+    }
+
+    .function-input-label {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 8px;
+    }
+
+    .collapsed-preview {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+      font-size: 12px;
+      opacity: 0.7;
+      border-left: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .collapsed-preview code {
+      background: none;
+      padding: 0;
+      color: #9cdcfe;
+      font-size: 11px;
     }
 
     .message-content {
@@ -240,6 +316,7 @@
       border: 1px solid #222;
       font-family: 'Monaco', 'Courier New', monospace;
       font-size: 12px;
+      position: relative;
     }
 
     .empty-state {
@@ -252,6 +329,174 @@
       font-size: 24px;
       margin-bottom: 12px;
       color: #888;
+    }
+
+    /* New styles for enhanced tool responses */
+
+    .structured-response {
+      margin-top: 8px;
+    }
+
+    .response-metadata {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .metadata-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .metadata-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .metadata-key {
+      font-weight: 600;
+      color: #aaa;
+      min-width: 100px;
+    }
+
+    .metadata-value {
+      background: #0a0a0a;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      color: #6ba3ff;
+      flex: 1;
+    }
+
+    .collapsible-code {
+      margin-top: 12px;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px 6px 0 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: none;
+    }
+
+    .code-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #aaa;
+    }
+
+    .code-block {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 0 0 6px 6px;
+      overflow-x: auto;
+      border: 1px solid #222;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .code-block code {
+      background: none;
+      padding: 0;
+      color: #e0e0e0;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e0e0e0;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+
+    .copy-btn.small {
+      position: static;
+      padding: 2px 6px;
+      font-size: 10px;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .raw-response {
+      margin-top: 12px;
+      position: relative;
+    }
+
+    .raw-response pre {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      border: 1px solid #222;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .json-response, .text-response {
+      position: relative;
+    }
+
+    .response-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .response-type-badge {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .json-badge {
+      background: rgba(181, 206, 168, 0.2);
+      color: #b5cea8;
+    }
+
+    .response-meta-info {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .json-block-wrapper {
+      position: relative;
+    }
+
+    .json-block-wrapper .copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
     }
   </style>
 </head>

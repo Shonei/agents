@@ -7,6 +7,7 @@ import (
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/utils"
 )
 
 type ListDirTool struct{}
@@ -14,7 +15,7 @@ type ListDirTool struct{}
 func (t *ListDirTool) Name() string { return "list_dir" }
 
 func (t *ListDirTool) Description() string {
-	return "Explores a directory and returns metadata for files and subdirectories, including relative paths, file types, sizes, and child counts. Can optionally recurse into subdirectories."
+	return "Explores a directory and returns metadata for files and subdirectories, including relative paths, file types, sizes, and child counts. Can optionally recurse into subdirectories. This Tool will skip vendor directories and other common directories that include irrelevant files."
 }
 
 func (t *ListDirTool) Init(config map[string]string, _ *config.ConfigFactory) {
@@ -125,6 +126,11 @@ func listDirectoryEntries(root, dir string, recursive bool, maxDepth, depth int)
 	result := make([]DirectoryEntry, 0, len(dirEntries))
 
 	for _, entry := range dirEntries {
+		// Skip common directories that contain irrelevant files
+		if entry.IsDir() && utils.SkipDirs[entry.Name()] {
+			continue
+		}
+
 		fullPath := filepath.Join(dir, entry.Name())
 		info, err := entry.Info()
 		if err != nil {

@@ -9,8 +9,8 @@ import (
 	"github.com/svent/sift/gitignore"
 )
 
-// skipDirs contains directory names that should always be skipped during file collection.
-var skipDirs = map[string]bool{
+// SkipDirs contains directory names that should always be skipped during file collection.
+var SkipDirs = map[string]bool{
 	".git":           true,
 	"node_modules":   true,
 	".svn":           true,
@@ -85,7 +85,7 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 		}
 
 		if entry.IsDir() {
-			if skipDirs[entry.Name()] {
+			if SkipDirs[entry.Name()] {
 				return filepath.SkipDir
 			}
 

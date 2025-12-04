@@ -3,6 +3,9 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/Shonei/agents/pkg/sdk/claude"
+	"github.com/Shonei/agents/pkg/sdk/gemini"
+	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
@@ -14,6 +17,23 @@ import (
 type engage struct {
 	configFactory *config.ConfigFactory
 	prompt        string
+}
+
+func Models() map[string]func(config.Agent, string, *audit.Audit) *sdk.AI {
+	return map[string]func(config.Agent, string, *audit.Audit) *sdk.AI{
+		claude.ModelClaude45: func(agent config.Agent, apiKey string, audit *audit.Audit) *sdk.AI {
+			return sdk.NewAI(claude.NewAgent(
+				claude.WithAPIKey(apiKey),
+				claude.WithModel(claude.ModelClaude45),
+			), audit)
+		},
+		gemini.ModelGemini3: func(agent config.Agent, apiKey string, audit *audit.Audit) *sdk.AI {
+			return sdk.NewAI(gemini.NewAgent(
+				gemini.WithAPIKey(apiKey),
+				gemini.WithModel(gemini.ModelGemini3),
+			), audit)
+		},
+	}
 }
 
 func NewEngage(c *config.ConfigFactory) *cobra.Command {
@@ -56,7 +76,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	for _, toolName := range agent.Tools {
 		found := false
 
-		for _, tool := range Tools() {
+		for _, tool := range tools.Tools() {
 			if tool.Name() == toolName.Name {
 				found = true
 

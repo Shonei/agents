@@ -10,6 +10,10 @@ import (
 	"github.com/Shonei/agents/pkg/storage"
 )
 
+func init() {
+	RegisterTools(&RagTool{})
+}
+
 // RagTool is a tool for searching a RAG store
 type RagTool struct {
 	store  *storage.Storage

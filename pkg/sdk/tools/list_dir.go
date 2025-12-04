@@ -10,6 +10,10 @@ import (
 	"github.com/Shonei/agents/pkg/utils"
 )
 
+func init() {
+	RegisterTools(&ListDirTool{})
+}
+
 type ListDirTool struct{}
 
 func (t *ListDirTool) Name() string { return "list_dir" }

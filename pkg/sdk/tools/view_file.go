@@ -10,6 +10,10 @@ import (
 	"github.com/Shonei/agents/pkg/sdk"
 )
 
+func init() {
+	RegisterTools(&ViewFileTool{})
+}
+
 type ViewFileTool struct{}
 
 func (t *ViewFileTool) Name() string { return "view_file" }

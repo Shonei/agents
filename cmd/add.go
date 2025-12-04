@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
@@ -17,6 +18,14 @@ type add struct {
 	systemPrompts string
 	model         string
 	tools         []string
+}
+
+var modelNames = []string{}
+
+func init() {
+	for name := range Models() {
+		modelNames = append(modelNames, name)
+	}
 }
 
 func NewAdd(c *config.ConfigFactory) *cobra.Command {
@@ -36,8 +45,8 @@ func NewAdd(c *config.ConfigFactory) *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVar(&a.name, "name", "", "Name of the agent")
 	flags.StringVar(&a.systemPrompts, "system-prompt", "", "System prompts for the agent. You can use go template syntax to access functions like {{ .Cwd }}. Available functions: ["+strings.Join(promptFunctions, ", ")+"]")
-	flags.StringVar(&a.model, "model", "", "Model to use for the agent ["+strings.Join(ModelNames(), " ")+"]")
-	flags.StringSliceVar(&a.tools, "tools", []string{}, "Tools to use for the agent ["+strings.Join(ToolNames(), " ")+"]")
+	flags.StringVar(&a.model, "model", "", "Model to use for the agent ["+strings.Join(modelNames, " ")+"]")
+	flags.StringSliceVar(&a.tools, "tools", []string{}, "Tools to use for the agent ["+strings.Join(tools.ToolNames(), " ")+"]")
 
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("system-prompt")
@@ -57,7 +66,7 @@ func (a *add) Run(cmd *cobra.Command, args []string) {
 		utils.NewExitError().WithMessage("system prompts is required").Done()
 	}
 
-	if a.model == "" || !slices.Contains(ModelNames(), a.model) {
+	if a.model == "" || !slices.Contains(modelNames, a.model) {
 		utils.NewExitError().WithMessage("model is required and must be valid").Done()
 	}
 

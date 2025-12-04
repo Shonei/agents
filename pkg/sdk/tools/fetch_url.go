@@ -6,10 +6,13 @@ import (
 	"strings"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
-
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/utils"
 )
+
+func init() {
+	RegisterTools(&FetchURLTool{})
+}
 
 // FetchURLTool fetches the content of a URL
 type FetchURLTool struct{}

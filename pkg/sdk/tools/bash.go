@@ -11,6 +11,10 @@ import (
 	"github.com/Shonei/agents/pkg/utils"
 )
 
+func init() {
+	RegisterTools(&BashTool{})
+}
+
 // BashTool is given an input command and executes it
 type BashTool struct{}
 

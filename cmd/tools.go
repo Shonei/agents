@@ -14,9 +14,10 @@ func NewTools() *cobra.Command {
 	}
 
 	detailsCommand := tools.NewDetailsCommand()
+	executeCommand := tools.NewExecuteCommand()
 
+	cmd.AddCommand(executeCommand)
 	cmd.AddCommand(detailsCommand)
 
 	return cmd
 }
-

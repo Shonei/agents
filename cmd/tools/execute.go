@@ -8,6 +8,7 @@ import (
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
+	"github.com/charmbracelet/glamour"
 	"github.com/spf13/cobra"
 )
 
@@ -66,7 +67,12 @@ func (e *executeCommand) Run(cmd *cobra.Command, args []string) {
 	// Print the result
 	switch v := result.(type) {
 	case string:
-		fmt.Println(v)
+		out, err := glamour.Render(v, "dark")
+		if err != nil {
+			fmt.Println(v)
+		} else {
+			fmt.Println(out)
+		}
 	default:
 		jsonResult, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
@@ -117,4 +123,3 @@ func setNestedValue(m map[string]interface{}, parts []string, value string) {
 		setNestedValue(nested, parts[1:], value)
 	}
 }
-

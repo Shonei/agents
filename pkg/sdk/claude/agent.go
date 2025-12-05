@@ -107,6 +107,8 @@ func (a *Agent) SendMessage(message string) (*sdk.MessageResponse, error) {
 		return nil, fmt.Errorf("API key is required. Set %s environment variable or use WithAPIKey option", EnvAPIKey)
 	}
 
+	var temperature = 0.0
+
 	// Create the request
 	request := sdk.CreateMessageRequest{
 		Model:     a.model,
@@ -114,6 +116,7 @@ func (a *Agent) SendMessage(message string) (*sdk.MessageResponse, error) {
 		Messages: []sdk.InputMessage{
 			sdk.NewTextMessage(sdk.RoleUser, message),
 		},
+		Temperature: &temperature,
 	}
 
 	return a.CreateMessage(request)
@@ -148,16 +151,43 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 }
 
 func (a *Agent) convertRequest(req sdk.CreateMessageRequest) CreateMessageRequest {
+	messages := []InputMessage{}
+	for _, msg := range req.Messages {
+		messages = append(messages, InputMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	toolChoices := ToolChoice{}
+	if req.ToolChoice != nil {
+		toolChoices = ToolChoice{
+			Type: req.ToolChoice.Type,
+			Name: req.ToolChoice.Name,
+		}
+	}
+
+	tools := []Tool{}
+	for _, tool := range req.Tools {
+		tools = append(tools, Tool{
+			Type:        tool.Type,
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: tool.InputSchema,
+		})
+	}
+
 	return CreateMessageRequest{
 		Model:         req.Model,
-		Messages:      req.Messages,
+		Messages:      messages,
 		MaxTokens:     req.MaxTokens,
 		StopSequences: req.StopSequences,
 		Stream:        req.Stream,
 		System:        req.System,
 		Temperature:   req.Temperature,
-		ToolChoice:    req.ToolChoice,
-		Tools:         req.Tools,
+		Thinking:      &ThinkingConfig{Type: "enabled", BudgetTokens: 2000},
+		ToolChoice:    &toolChoices,
+		Tools:         tools,
 		TopK:          req.TopK,
 		TopP:          req.TopP,
 	}

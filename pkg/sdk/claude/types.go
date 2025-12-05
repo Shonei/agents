@@ -8,22 +8,58 @@ import "github.com/Shonei/agents/pkg/sdk"
 // This is the internal Claude wire type; it deliberately mirrors sdk.CreateMessageRequest
 // so we can use simple type conversions in the agent while keeping the types distinct.
 type CreateMessageRequest struct {
-	Model         string             `json:"model"`
-	Messages      []sdk.InputMessage `json:"messages"`
-	MaxTokens     int                `json:"max_tokens"`
-	StopSequences []string           `json:"stop_sequences,omitempty"`
-	Stream        bool               `json:"stream,omitempty"`
-	System        sdk.SystemPrompt   `json:"system,omitempty"`
-	Temperature   *float64           `json:"temperature,omitempty"`
-	ToolChoice    *sdk.ToolChoice    `json:"tool_choice,omitempty"`
-	Tools         []sdk.Tool         `json:"tools,omitempty"`
-	TopK          *int               `json:"top_k,omitempty"`
-	TopP          *float64           `json:"top_p,omitempty"`
+	Model         string          `json:"model"`
+	Messages      []InputMessage  `json:"messages"`
+	MaxTokens     int             `json:"max_tokens"`
+	StopSequences []string        `json:"stop_sequences,omitempty"`
+	Stream        bool            `json:"stream,omitempty"`
+	System        SystemPrompt    `json:"system,omitempty"`
+	Temperature   *float64        `json:"temperature,omitempty"`
+	Thinking      *ThinkingConfig `json:"thinking,omitempty"`
+	ToolChoice    *ToolChoice     `json:"tool_choice,omitempty"`
+	Tools         []Tool          `json:"tools,omitempty"`
+	TopK          *int            `json:"top_k,omitempty"`
+	TopP          *float64        `json:"top_p,omitempty"`
 }
+
+// InputMessage represents a message in the conversation
+type InputMessage struct {
+	Role    string         `json:"role"` // "user" or "assistant"
+	Content MessageContent `json:"content"`
+}
+
+// SystemPrompt can be either a string or an array of text blocks
+type SystemPrompt interface{}
+
+// MessageContent can be either a string or an array of content blocks
+type MessageContent interface{}
 
 // CacheControl for prompt caching
 type CacheControl struct {
 	Type string `json:"type"` // "ephemeral"
+}
+
+// ImageSource represents an image source
+type ImageSource struct {
+	Type      string `json:"type"` // "base64" or "url"
+	MediaType string `json:"media_type,omitempty"`
+	Data      string `json:"data,omitempty"`
+	URL       string `json:"url,omitempty"`
+}
+
+// Tool represents a tool definition
+type Tool struct {
+	Type        string                 `json:"type,omitempty"` // "custom" or null
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	InputSchema map[string]interface{} `json:"input_schema"`
+}
+
+// ToolChoice represents how the model should use tools
+type ToolChoice struct {
+	Type                   string `json:"type"` // "auto", "any", "tool", or "none"
+	Name                   string `json:"name,omitempty"`
+	DisableParallelToolUse bool   `json:"disable_parallel_tool_use,omitempty"`
 }
 
 // ThinkingConfig for extended thinking
@@ -156,46 +192,15 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-// Specific error types
-const (
-	ErrorTypeInvalidRequest = "invalid_request_error"
-	ErrorTypeAuthentication = "authentication_error"
-	ErrorTypeBilling        = "billing_error"
-	ErrorTypePermission     = "permission_error"
-	ErrorTypeNotFound       = "not_found_error"
-	ErrorTypeRateLimit      = "rate_limit_error"
-	ErrorTypeGatewayTimeout = "timeout_error"
-	ErrorTypeAPI            = "api_error"
-	ErrorTypeOverloaded     = "overloaded_error"
-)
-
-// Stop reason constants
-const (
-	StopReasonEndTurn                    = "end_turn"
-	StopReasonMaxTokens                  = "max_tokens"
-	StopReasonStopSequence               = "stop_sequence"
-	StopReasonToolUse                    = "tool_use"
-	StopReasonPauseTurn                  = "pause_turn"
-	StopReasonRefusal                    = "refusal"
-	StopReasonModelContextWindowExceeded = "model_context_window_exceeded"
-)
-
-// Content block type constants
-const (
-	ContentTypeText       = sdk.ContentTypeText
-	ContentTypeImage      = sdk.ContentTypeImage
-	ContentTypeToolUse    = sdk.ContentTypeToolUse
-	ContentTypeToolResult = sdk.ContentTypeToolResult
-	ContentTypeThinking   = "thinking"
-)
-
-// Role constants
-const (
-	RoleUser      = sdk.RoleUser
-	RoleAssistant = sdk.RoleAssistant
-)
-
 // Model constants
 const (
 	ModelClaude45 = "claude-sonnet-4-5-20250929"
 )
+
+// NewTextMessage creates a simple text message
+func NewTextMessage(role, text string) InputMessage {
+	return InputMessage{
+		Role:    role,
+		Content: text,
+	}
+}

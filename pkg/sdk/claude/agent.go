@@ -153,6 +153,29 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 func (a *Agent) convertRequest(req sdk.CreateMessageRequest) CreateMessageRequest {
 	messages := []InputMessage{}
 	for _, msg := range req.Messages {
+		content := []ContentBlock{}
+
+		switch v := msg.Content.(type) {
+		case string:
+			content = append(content, ContentBlock{Type: ContentTypeText, Text: v})
+			msg.Content = content
+		case []sdk.ContentBlock:
+			for _, block := range v {
+				switch block.Type {
+				case sdk.ContentTypeText:
+					content = append(content, ContentBlock{Type: ContentTypeText, Text: block.Text})
+				case sdk.ContentTypeToolUse:
+					content = append(content, ContentBlock{Type: ContentTypeToolUse, ID: block.ID, Name: block.Name, Input: block.Input})
+				case sdk.ContentTypeToolResult:
+					content = append(content, ContentBlock{Type: ContentTypeToolResult, ToolUseID: block.ToolUseID, Content: block.Content, IsError: block.IsError})
+				case sdk.ContentTypeThinking:
+					content = append(content, ContentBlock{Type: ContentTypeThinking, Thinking: block.Text, Signature: block.ThoughtSignature})
+				}
+			}
+			msg.Content = content
+			break
+		}
+
 		messages = append(messages, InputMessage{
 			Role:    msg.Role,
 			Content: msg.Content,
@@ -194,14 +217,54 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) CreateMessageReques
 }
 
 func (a *Agent) convertResponse(resp MessageResponse) *sdk.MessageResponse {
+	uage := sdk.Usage{
+		InputTokens:  resp.Usage.InputTokens,
+		OutputTokens: resp.Usage.OutputTokens,
+	}
+
+	content := []sdk.ResponseContentBlock{}
+	for _, block := range resp.Content {
+
+		switch block.Type {
+		case ContentTypeText:
+			content = append(content, sdk.ResponseContentBlock{
+				Type: sdk.ContentTypeText,
+				Text: block.Text,
+			})
+		case ContentTypeToolUse:
+			content = append(content, sdk.ResponseContentBlock{
+				Type:             sdk.ContentTypeToolUse,
+				ID:               block.ID,
+				Name:             block.Name,
+				Input:            block.Input,
+				ThoughtSignature: block.ThoughtSignature,
+			})
+		case ContentTypeThinking:
+			content = append(content, sdk.ResponseContentBlock{
+				Type:             sdk.ContentTypeThinking,
+				Text:             block.Thinking,
+				ThoughtSignature: block.Signature,
+			})
+		default:
+			content = append(content, sdk.ResponseContentBlock{
+				Type:             block.Type,
+				Text:             block.Text,
+				ID:               block.ID,
+				Name:             block.Name,
+				Input:            block.Input,
+				ThoughtSignature: block.ThoughtSignature,
+			})
+		}
+	}
+
 	return &sdk.MessageResponse{
 		ID:           resp.ID,
 		Type:         resp.Type,
 		Role:         resp.Role,
-		Content:      resp.Content,
+		Content:      content,
 		Model:        resp.Model,
 		StopReason:   resp.StopReason,
 		StopSequence: resp.StopSequence,
-		Usage:        resp.Usage,
+		Usage:        uage,
 	}
 }

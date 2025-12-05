@@ -1,8 +1,61 @@
 package claude
 
-import "github.com/Shonei/agents/pkg/sdk"
+// Content block type constants
+const (
+	ContentTypeText       = "text"
+	ContentTypeImage      = "image"
+	ContentTypeToolUse    = "tool_use"
+	ContentTypeToolResult = "tool_result"
+	ContentTypeThinking   = "thinking"
+)
 
-// Messages API Request Types
+// ContentBlock represents different types of content blocks
+type ContentBlock struct {
+	Type string `json:"type"`
+	// Text content
+	Text      string `json:"text,omitempty"`
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+
+	// Image content
+	Source *ImageSource `json:"source,omitempty"`
+	// Tool use content
+	ID    string                 `json:"id,omitempty"`
+	Name  string                 `json:"name,omitempty"`
+	Input map[string]interface{} `json:"input,omitempty"`
+	// Tool result content
+	ToolUseID string      `json:"tool_use_id,omitempty"`
+	Content   interface{} `json:"content,omitempty"`
+	IsError   bool        `json:"is_error,omitempty"`
+}
+
+// NewTextContentBlock creates a text content block
+func NewTextContentBlock(text string) ContentBlock {
+	return ContentBlock{
+		Type: ContentTypeText,
+		Text: text,
+	}
+}
+
+// NewToolUseContentBlock creates a tool use content block
+func NewToolUseContentBlock(id, name string, input map[string]interface{}) ContentBlock {
+	return ContentBlock{
+		Type:  ContentTypeToolUse,
+		ID:    id,
+		Name:  name,
+		Input: input,
+	}
+}
+
+// NewToolResultContentBlock creates a tool result content block
+func NewToolResultContentBlock(toolUseID string, content interface{}, isError bool) ContentBlock {
+	return ContentBlock{
+		Type:      ContentTypeToolResult,
+		ToolUseID: toolUseID,
+		Content:   content,
+		IsError:   isError,
+	}
+}
 
 // CreateMessageRequest represents the request body for creating a message
 // This is the internal Claude wire type; it deliberately mirrors sdk.CreateMessageRequest
@@ -121,14 +174,37 @@ type RequestMCPServerURL struct {
 // This is the internal Claude wire type; it mirrors sdk.MessageResponse so
 // we can use simple type conversions in the agent while keeping the types distinct.
 type MessageResponse struct {
-	ID           string                     `json:"id"`
-	Type         string                     `json:"type"` // "message"
-	Role         string                     `json:"role"` // "assistant"
-	Content      []sdk.ResponseContentBlock `json:"content"`
-	Model        string                     `json:"model"`
-	StopReason   *string                    `json:"stop_reason"`
-	StopSequence *string                    `json:"stop_sequence"`
-	Usage        sdk.Usage                  `json:"usage"`
+	ID           string                 `json:"id"`
+	Type         string                 `json:"type"` // "message"
+	Role         string                 `json:"role"` // "assistant"
+	Content      []ResponseContentBlock `json:"content"`
+	Model        string                 `json:"model"`
+	StopReason   *string                `json:"stop_reason"`
+	StopSequence *string                `json:"stop_sequence"`
+	Usage        Usage                  `json:"usage"`
+}
+
+// Usage represents token usage information
+type Usage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// ResponseContentBlock represents different types of response content blocks
+type ResponseContentBlock struct {
+	Type string `json:"type"`
+
+	// Text block
+	Text string `json:"text,omitempty"`
+
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+
+	// Tool use block
+	ID               string                 `json:"id,omitempty"`
+	Name             string                 `json:"name,omitempty"`
+	Input            map[string]interface{} `json:"input,omitempty"`
+	ThoughtSignature string                 `json:"thought_signature,omitempty"`
 }
 
 // ResponseCitation represents a citation in the response

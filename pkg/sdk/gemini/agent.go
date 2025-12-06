@@ -11,7 +11,7 @@ import (
 
 const (
 	// DefaultModel is the default Gemini model to use
-	DefaultModel = "gemini-3-pro-preview"
+	DefaultModel = ModelGemini3
 	// DefaultMaxTokens is the default maximum tokens for responses
 	DefaultMaxTokens = 8192
 	// EnvAPIKey is the environment variable name for the Gemini API key
@@ -19,20 +19,35 @@ const (
 )
 
 type Agent struct {
-	httpClient   *utils.HTTPBuilder
-	apiKey       string
-	model        string
-	maxTokens    int
-	embeddingDim int
+	httpClient         *utils.HTTPBuilder
+	apiKey             string
+	model              string
+	maxTokens          int
+	temperature        float64
+	embeddingDim       int
+	responseModalities []string
+	thinkingEnabled    bool
 }
 
 // AgentOption is a functional option for configuring the Agent
 type AgentOption func(*Agent)
 
+func WithImageGen() AgentOption {
+	return func(a *Agent) {
+		a.responseModalities = []string{"IMAGE", "TEXT"}
+	}
+}
+
 // WithAPIKey sets the API key for the agent
 func WithAPIKey(apiKey string) AgentOption {
 	return func(a *Agent) {
 		a.apiKey = apiKey
+	}
+}
+
+func WithThinking() AgentOption {
+	return func(a *Agent) {
+		a.thinkingEnabled = true
 	}
 }
 
@@ -47,6 +62,12 @@ func WithModel(model string) AgentOption {
 func WithMaxTokens(maxTokens int) AgentOption {
 	return func(a *Agent) {
 		a.maxTokens = maxTokens
+	}
+}
+
+func WithTemperature(temperature float64) AgentOption {
+	return func(a *Agent) {
+		a.temperature = temperature
 	}
 }
 
@@ -69,10 +90,11 @@ func (a *Agent) MaxTokens() int {
 // NewAgent creates a new Agent with the given options
 func NewAgent(opts ...AgentOption) *Agent {
 	agent := &Agent{
-		httpClient: utils.NewHTTPBuilder("https://generativelanguage.googleapis.com"),
-		apiKey:     os.Getenv(EnvAPIKey),
-		model:      DefaultModel,
-		maxTokens:  DefaultMaxTokens,
+		httpClient:  utils.NewHTTPBuilder("https://generativelanguage.googleapis.com"),
+		apiKey:      os.Getenv(EnvAPIKey),
+		model:       DefaultModel,
+		maxTokens:   DefaultMaxTokens,
+		temperature: 0.0,
 	}
 
 	for _, opt := range opts {
@@ -126,13 +148,15 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 	}
 
 	geminiRequest.GenerationConfig = &GenerationConfig{
-		ThinkingConfig: &ThinkingConfig{
+		MaxOutputTokens:    DefaultMaxTokens,
+		Temperature:        a.temperature,
+		ResponseModalities: a.responseModalities,
+	}
+
+	if a.thinkingEnabled {
+		geminiRequest.GenerationConfig.ThinkingConfig = &ThinkingConfig{
 			IncludeThoughts: true,
-			// ThinkingBudget:  100,
-			// ThinkingLevel:   1,
-		},
-		Temperature: 0.0,
-		// MaxOutputTokens: request.MaxTokens,
+		}
 	}
 
 	var response GenerateContentResponse
@@ -330,6 +354,18 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 				Name:             part.FunctionCall.Name,
 				Input:            part.FunctionCall.Args,
 				ThoughtSignature: part.ThoughtSignature,
+			})
+
+			continue
+		}
+
+		if part.InlineData != nil {
+			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
+				Type: sdk.ContentTypeImage,
+				Blob: &sdk.Blob{
+					MimeType: part.InlineData.MimeType,
+					Data:     part.InlineData.Data,
+				},
 			})
 
 			continue

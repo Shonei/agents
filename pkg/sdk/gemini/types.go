@@ -1,5 +1,14 @@
 package gemini
 
+// Constants
+const (
+	RoleUser             = "user"
+	RoleModel            = "model"
+	ModelGemini3         = "gemini-3-pro-preview"
+	ModelGeminiEmbedding = "gemini-embedding-001"
+	ModelGeminiImageGen  = "gemini-2.5-flash-image"
+)
+
 // GenerateContentRequest represents the request body for generating content
 type GenerateContentRequest struct {
 	Contents          []Content         `json:"contents"`
@@ -68,13 +77,14 @@ type FunctionCallingConfig struct {
 
 // GenerationConfig represents generation configuration
 type GenerationConfig struct {
-	StopSequences   []string        `json:"stopSequences,omitempty"`
-	CandidateCount  int             `json:"candidateCount,omitempty"`
-	MaxOutputTokens int             `json:"maxOutputTokens,omitempty"`
-	Temperature     float64         `json:"temperature,omitempty"`
-	TopP            float64         `json:"topP,omitempty"`
-	TopK            int             `json:"topK,omitempty"`
-	ThinkingConfig  *ThinkingConfig `json:"thinkingConfig,omitempty"`
+	StopSequences      []string        `json:"stopSequences,omitempty"`
+	CandidateCount     int             `json:"candidateCount,omitempty"`
+	MaxOutputTokens    int             `json:"maxOutputTokens,omitempty"`
+	Temperature        float64         `json:"temperature,omitempty"`
+	TopP               float64         `json:"topP,omitempty"`
+	TopK               int             `json:"topK,omitempty"`
+	ThinkingConfig     *ThinkingConfig `json:"thinkingConfig,omitempty"`
+	ResponseModalities []string        `json:"responseModalities,omitempty"`
 }
 
 type ThinkingConfig struct {
@@ -111,14 +121,6 @@ type UsageMetadata struct {
 	CandidatesTokenCount int `json:"candidatesTokenCount"`
 	TotalTokenCount      int `json:"totalTokenCount"`
 }
-
-// Constants
-const (
-	RoleUser             = "user"
-	RoleModel            = "model"
-	ModelGemini3         = "gemini-3-pro-preview"
-	ModelGeminiEmbedding = "gemini-embedding-001"
-)
 
 // Embeddings
 

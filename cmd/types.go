@@ -26,6 +26,7 @@ func Models() map[string]func(config.Agent, string, *audit.Audit) *sdk.AI {
 			return sdk.NewAI(gemini.NewAgent(
 				gemini.WithAPIKey(apiKey),
 				gemini.WithModel(gemini.ModelGemini3),
+				gemini.WithThinking(),
 			), audit)
 		},
 	}

@@ -125,11 +125,18 @@ type ResponseContentBlock struct {
 	// Text block
 	Text string `json:"text,omitempty"`
 
+	Blob *Blob `json:"blob,omitempty"`
+
 	// Tool use block
 	ID               string                 `json:"id,omitempty"`
 	Name             string                 `json:"name,omitempty"`
 	Input            map[string]interface{} `json:"input,omitempty"`
 	ThoughtSignature string                 `json:"thought_signature,omitempty"`
+}
+
+type Blob struct {
+	MimeType string `json:"mime_type"`
+	Data     string `json:"data"`
 }
 
 // Usage represents token usage information

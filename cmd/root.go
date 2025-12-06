@@ -25,6 +25,8 @@ func Execute() {
 	add := NewAdd(configFactory)
 	list := NewList(configFactory)
 	engage := NewEngage(configFactory)
+	imageGen := NewImageGen(configFactory)
+
 	rag := NewRAG(configFactory)
 	prompt := NewSystemPrompt(configFactory)
 	tools := NewTools()
@@ -32,6 +34,7 @@ func Execute() {
 	rootCmd.AddCommand(add)
 	rootCmd.AddCommand(list)
 	rootCmd.AddCommand(engage)
+	rootCmd.AddCommand(imageGen)
 	rootCmd.AddCommand(rag)
 	rootCmd.AddCommand(prompt)
 	rootCmd.AddCommand(tools)

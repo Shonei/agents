@@ -25,7 +25,7 @@ func (r *RagTool) Name() string {
 }
 
 func (r *RagTool) Description() string {
-	return "The RAG tool allows you to search the local codebase for relevant information. It will return the most relevant files and metadata associated with the files. The metadata will include the file path, size, and extension. So for large files you can avoid loading all of them into the context."
+	return "Searches a RAG store for documents relevant to a query. The query is embedded and compared against stored documents using vector similarity. The more descriptive the query is the better."
 }
 
 func (r *RagTool) Init(_ map[string]string, c *config.ConfigFactory) {

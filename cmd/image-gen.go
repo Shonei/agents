@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Shonei/agents/pkg/sdk"
-	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/charmbracelet/glamour"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
+	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/utils"
 )
 

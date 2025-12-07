@@ -107,7 +107,7 @@ func (a *Agent) SendMessage(message string) (*sdk.MessageResponse, error) {
 		return nil, fmt.Errorf("API key is required. Set %s environment variable or use WithAPIKey option", EnvAPIKey)
 	}
 
-	var temperature = 0.0
+	temperature := 0.0
 
 	// Create the request
 	request := sdk.CreateMessageRequest{
@@ -173,7 +173,6 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) CreateMessageReques
 				}
 			}
 			msg.Content = content
-			break
 		}
 
 		messages = append(messages, InputMessage{
@@ -224,7 +223,6 @@ func (a *Agent) convertResponse(resp MessageResponse) *sdk.MessageResponse {
 
 	content := []sdk.ResponseContentBlock{}
 	for _, block := range resp.Content {
-
 		switch block.Type {
 		case ContentTypeText:
 			content = append(content, sdk.ResponseContentBlock{

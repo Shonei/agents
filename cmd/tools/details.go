@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -37,6 +37,7 @@ func (d *detailsCommand) Run(cmd *cobra.Command, args []string) {
 	for _, tool := range tools.Tools() {
 		if tool.Name() == toolName {
 			foundTool = tool
+
 			break
 		}
 	}

@@ -2,10 +2,15 @@ package tools
 
 import "github.com/Shonei/agents/pkg/sdk"
 
-var availableTools = []sdk.AITool{}
-
-func RegisterTools(tools sdk.AITool) {
-	availableTools = append(availableTools, tools)
+var availableTools = []sdk.AITool{
+	&FetchURLTool{},
+	&TimeTool{},
+	&WriteToFileTool{},
+	&ViewFileTool{},
+	&ListDirTool{},
+	&BashTool{},
+	&StrReplaceEditorTool{},
+	&RagTool{},
 }
 
 func Tools() []sdk.AITool {

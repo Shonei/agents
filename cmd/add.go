@@ -4,11 +4,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/claude"
+	"github.com/Shonei/agents/pkg/sdk/gemini"
+	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -20,12 +22,9 @@ type add struct {
 	tools         []string
 }
 
-var modelNames = []string{}
-
-func init() {
-	for name := range Models() {
-		modelNames = append(modelNames, name)
-	}
+var modelNames = []string{
+	claude.ModelClaude45,
+	gemini.ModelGemini3,
 }
 
 func NewAdd(c *config.ConfigFactory) *cobra.Command {

@@ -11,10 +11,6 @@ import (
 	"github.com/Shonei/agents/pkg/sdk"
 )
 
-func init() {
-	RegisterTools(&ViewFileTool{})
-}
-
 type ViewFileTool struct{}
 
 func (t *ViewFileTool) Name() string { return "view_file" }
@@ -107,6 +103,7 @@ func formatFileSize(bytes int64) string {
 		div *= unit
 		exp++
 	}
+
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
@@ -119,6 +116,7 @@ func lineNumberWidth(totalLines int) int {
 	if width < 4 {
 		width = 4
 	}
+
 	return width
 }
 
@@ -180,6 +178,7 @@ func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 		fmt.Fprintf(&b, "<content>\n")
 		fmt.Fprintf(&b, "  (empty file)\n")
 		fmt.Fprintf(&b, "</content>\n")
+
 		return b.String(), nil
 	}
 

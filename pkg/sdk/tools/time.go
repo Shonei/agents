@@ -7,10 +7,6 @@ import (
 	"github.com/Shonei/agents/pkg/config"
 )
 
-func init() {
-	RegisterTools(&TimeTool{})
-}
-
 // TimeTool returns the current time
 type TimeTool struct{}
 

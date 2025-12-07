@@ -13,10 +13,6 @@ import (
 	"github.com/Shonei/agents/pkg/utils"
 )
 
-func init() {
-	RegisterTools(&WriteToFileTool{})
-}
-
 // WriteToFileTool is a tool for creating files and write content to them
 type WriteToFileTool struct{}
 

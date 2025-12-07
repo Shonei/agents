@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
-	"github.com/spf13/cobra"
 )
 
-type executeCommand struct{}
+type executeCommand struct {
+	configFactory *config.ConfigFactory
+}
 
 // NewExecuteCommand implements the `agents tools execute <tool_name> <params>...` command.
 func NewExecuteCommand() *cobra.Command {
@@ -39,6 +43,8 @@ Available tools: ` + strings.Join(tools.ToolNames(), ", "),
 
 // Run executes the tool with the parsed parameters.
 func (e *executeCommand) Run(cmd *cobra.Command, args []string) {
+	e.configFactory.LoadConfig()
+
 	toolName := args[0]
 	params := args[1:]
 
@@ -46,6 +52,7 @@ func (e *executeCommand) Run(cmd *cobra.Command, args []string) {
 	for _, tool := range tools.Tools() {
 		if tool.Name() == toolName {
 			foundTool = tool
+
 			break
 		}
 	}
@@ -54,10 +61,10 @@ func (e *executeCommand) Run(cmd *cobra.Command, args []string) {
 		utils.NewExitError().WithMessage(fmt.Sprintf("tool not found: %s. Available tools: %s", toolName, strings.Join(tools.ToolNames(), ", "))).Done()
 	}
 
-	// Parse parameters into a map
 	input := parseParams(params)
 
-	// Call the tool
+	foundTool.Init(nil, e.configFactory)
+
 	result, err := foundTool.Call(input)
 	if err != nil {
 		utils.NewExitError().WithMessage("tool execution failed").WithReason(err).Done()
@@ -105,6 +112,7 @@ func parseParams(params []string) map[string]interface{} {
 func setNestedValue(m map[string]interface{}, parts []string, value string) {
 	if len(parts) == 1 {
 		m[parts[0]] = value
+
 		return
 	}
 

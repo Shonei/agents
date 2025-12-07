@@ -10,10 +10,6 @@ import (
 	"github.com/Shonei/agents/pkg/sdk"
 )
 
-func init() {
-	RegisterTools(&StrReplaceEditorTool{})
-}
-
 const (
 	maxLinesPerEdit = 150
 

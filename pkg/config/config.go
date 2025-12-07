@@ -35,10 +35,13 @@ type Agent struct {
 	Name          string `yaml:"name"`
 	SystemPrompts string `yaml:"system_prompt"`
 	Model         string `yaml:"model"`
+
 	// we will deal with this later
-	// MaxTokens     int      `yaml:"max_tokens"`
-	// Temperature   float64  `yaml:"temperature"`
-	Tools []ToolCall `yaml:"tools"`
+	MaxTokens          *int       `yaml:"max_tokens"`
+	Temperature        *float64   `yaml:"temperature"`
+	ResponseModalities []string   `yaml:"response_modalities"`
+	ThinkingEnabled    bool       `yaml:"thinking_enabled"`
+	Tools              []ToolCall `yaml:"tools"`
 }
 
 type ToolCall struct {

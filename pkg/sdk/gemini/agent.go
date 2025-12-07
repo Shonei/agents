@@ -32,12 +32,6 @@ type Agent struct {
 // AgentOption is a functional option for configuring the Agent
 type AgentOption func(*Agent)
 
-func WithImageGen() AgentOption {
-	return func(a *Agent) {
-		a.responseModalities = []string{"IMAGE", "TEXT"}
-	}
-}
-
 // WithAPIKey sets the API key for the agent
 func WithAPIKey(apiKey string) AgentOption {
 	return func(a *Agent) {
@@ -68,6 +62,12 @@ func WithMaxTokens(maxTokens int) AgentOption {
 func WithTemperature(temperature float64) AgentOption {
 	return func(a *Agent) {
 		a.temperature = temperature
+	}
+}
+
+func WithResponseModalities(modalities []string) AgentOption {
+	return func(a *Agent) {
+		a.responseModalities = modalities
 	}
 }
 
@@ -183,19 +183,9 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 	geminiReq := &GenerateContentRequest{
 		Contents: []Content{},
 		GenerationConfig: &GenerationConfig{
-			MaxOutputTokens: req.MaxTokens,
-			Temperature:     0.0, // Default to 0 for deterministic output
+			MaxOutputTokens: a.maxTokens,
+			Temperature:     a.temperature,
 		},
-	}
-
-	if req.Temperature != nil {
-		geminiReq.GenerationConfig.Temperature = *req.Temperature
-	}
-	if req.TopP != nil {
-		geminiReq.GenerationConfig.TopP = *req.TopP
-	}
-	if req.TopK != nil {
-		geminiReq.GenerationConfig.TopK = *req.TopK
 	}
 
 	// Convert System Prompt
@@ -239,7 +229,7 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 					if block.Source != nil {
 						parts = append(parts, Part{
 							InlineData: &Blob{
-								MimeType: block.Source.MediaType,
+								MimeType: block.Source.MimeType,
 								Data:     block.Source.Data,
 							},
 						})

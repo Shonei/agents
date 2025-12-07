@@ -25,6 +25,7 @@ type add struct {
 var modelNames = []string{
 	claude.ModelClaude45,
 	gemini.ModelGemini3,
+	gemini.ModelGeminiImageGen,
 }
 
 func NewAdd(c *config.ConfigFactory) *cobra.Command {

@@ -48,6 +48,27 @@ const (
 	ToolExecutionAbort
 )
 
+func GatherUserContent() (string, error) {
+	var userInput string
+
+	fmt.Print("\n> ")
+	for {
+		nextMessage, err := ReadUserInput()
+		if err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
+
+		if nextMessage == "" {
+			break
+		}
+
+		userInput += nextMessage + "\n"
+		fmt.Print("> ")
+	}
+
+	return userInput, nil
+}
+
 // AskUserConfirmation prompts the user for confirmation to execute a tool
 func AskUserConfirmation() (ToolExecutionChoice, error) {
 	color.New(color.FgYellow, color.Bold).Print("Execute this tool? ")

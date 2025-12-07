@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
@@ -54,6 +55,71 @@ type lineRange struct {
 	end   int
 }
 
+const (
+	// Max lines to display without warning
+	maxLinesWarningThreshold = 1000
+	// Max lines to display at all
+	maxLinesHardLimit = 10000
+)
+
+// isBinary checks if the file content appears to be binary
+func isBinary(data []byte) bool {
+	// Check first 8KB for null bytes or high percentage of non-text bytes
+	checkSize := 8192
+	if len(data) < checkSize {
+		checkSize = len(data)
+	}
+
+	nullCount := 0
+	nonPrintable := 0
+
+	for i := 0; i < checkSize; i++ {
+		b := data[i]
+		if b == 0 {
+			nullCount++
+		}
+		// Count non-printable characters (excluding common whitespace)
+		if b < 32 && b != '\n' && b != '\r' && b != '\t' {
+			nonPrintable++
+		}
+	}
+
+	// If we find null bytes or >30% non-printable, consider it binary
+	if nullCount > 0 || (float64(nonPrintable)/float64(checkSize)) > 0.3 {
+		return true
+	}
+
+	return false
+}
+
+// formatFileSize formats bytes into human-readable format
+func formatFileSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// lineNumberWidth calculates the width needed for line numbers
+func lineNumberWidth(totalLines int) int {
+	width := 1
+	for n := totalLines; n >= 10; n /= 10 {
+		width++
+	}
+	if width < 4 {
+		width = 4
+	}
+
+	return width
+}
+
 func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 	var in ViewFileToolInput
 	if err := mapstruct(input, &in); err != nil {
@@ -92,22 +158,90 @@ func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
+	// Check if file is binary
+	if isBinary(data) {
+		return "", sdk.NewAIError(fmt.Sprintf("Cannot display binary file: %s (size: %s). Use a different tool for binary files.", path, formatFileSize(info.Size())))
+	}
+
 	lines := strings.Split(string(data), "\n")
 	total := len(lines)
+
+	// Handle empty files
+	if total == 0 || (total == 1 && lines[0] == "") {
+		var b strings.Builder
+		fmt.Fprintf(&b, "<filePath>%s</filePath>\n", path)
+		fmt.Fprintf(&b, "<fileInfo>\n")
+		fmt.Fprintf(&b, "  Size: %s\n", formatFileSize(info.Size()))
+		fmt.Fprintf(&b, "  Modified: %s\n", info.ModTime().Format(time.RFC3339))
+		fmt.Fprintf(&b, "</fileInfo>\n")
+		fmt.Fprintf(&b, "<viewRange>0 lines (empty file)</viewRange>\n")
+		fmt.Fprintf(&b, "<content>\n")
+		fmt.Fprintf(&b, "  (empty file)\n")
+		fmt.Fprintf(&b, "</content>\n")
+
+		return b.String(), nil
+	}
 
 	start, end, err := resolveRange(in.ViewRange, total)
 	if err != nil {
 		return "", err
 	}
 
+	// Check if file is very large
+	var warnings []string
+	if total > maxLinesHardLimit {
+		if len(in.ViewRange) == 0 {
+			// No range specified, truncate to hard limit
+			end = maxLinesHardLimit
+			warnings = append(warnings, fmt.Sprintf("⚠ File has %d lines. Truncated to first %d lines. Use view_range parameter to view specific sections.", total, maxLinesHardLimit))
+		}
+	} else if total > maxLinesWarningThreshold && len(in.ViewRange) == 0 {
+		warnings = append(warnings, fmt.Sprintf("⚠ Large file (%d lines). Consider using view_range parameter to view specific sections.", total))
+	}
+
 	var b strings.Builder
 
+	// File path
 	fmt.Fprintf(&b, "<filePath>%s</filePath>\n", path)
+
+	// File metadata
+	fmt.Fprintf(&b, "<fileInfo>\n")
+	fmt.Fprintf(&b, "  Size: %s\n", formatFileSize(info.Size()))
+	fmt.Fprintf(&b, "  Lines: %d\n", total)
+	fmt.Fprintf(&b, "  Modified: %s\n", info.ModTime().Format(time.RFC3339))
+	fmt.Fprintf(&b, "</fileInfo>\n")
+
+	// Warnings if any
+	if len(warnings) > 0 {
+		fmt.Fprintf(&b, "<warnings>\n")
+		for _, w := range warnings {
+			fmt.Fprintf(&b, "  %s\n", w)
+		}
+		fmt.Fprintf(&b, "</warnings>\n")
+	}
+
+	// View range with context indicators
 	fmt.Fprintf(&b, "<viewRange>%d-%d of %d</viewRange>\n", start, end, total)
+
+	// Calculate line number width dynamically
+	lineWidth := lineNumberWidth(total)
+	lineFormat := fmt.Sprintf("%%%dd  %%s\n", lineWidth)
+
 	fmt.Fprintf(&b, "<content>\n")
 
+	// Context indicator: lines above
+	if start > 1 {
+		fmt.Fprintf(&b, "  ⋮ (%d lines above)\n", start-1)
+	}
+
+	// Display the actual content
 	for ln := start; ln <= end && ln <= total; ln++ {
-		fmt.Fprintf(&b, "%6d  %s\n", ln, lines[ln-1])
+		fmt.Fprintf(&b, lineFormat, ln, lines[ln-1])
+	}
+
+	// Context indicator: lines below
+	if end < total {
+		fmt.Fprintf(&b, "  ⋮ (%d lines below)\n", total-end)
 	}
 
 	fmt.Fprintf(&b, "</content>\n")

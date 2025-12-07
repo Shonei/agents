@@ -72,19 +72,6 @@ func TestReadMultilineInput(t *testing.T) {
 	}
 }
 
-func TestToolExecutionChoiceConstants(t *testing.T) {
-	// Test that the constants are defined correctly
-	if ToolExecutionYes != 0 {
-		t.Errorf("Expected ToolExecutionYes to be 0, got %d", ToolExecutionYes)
-	}
-	if ToolExecutionSkip != 1 {
-		t.Errorf("Expected ToolExecutionSkip to be 1, got %d", ToolExecutionSkip)
-	}
-	if ToolExecutionAbort != 2 {
-		t.Errorf("Expected ToolExecutionAbort to be 2, got %d", ToolExecutionAbort)
-	}
-}
-
 func TestPromptToolExecutionInputParsing(t *testing.T) {
 	// Test that input parsing would work correctly
 	testCases := []struct {

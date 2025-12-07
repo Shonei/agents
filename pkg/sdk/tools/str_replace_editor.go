@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	instructionReminderText = "ALWAYS BREAK DOWN EDITS INTO SMALLER CHUNKS OF AT MOST 150 LINES EACH."
-	maxLinesPerEdit         = 150
+	maxLinesPerEdit = 150
 
 	strReplaceCommand = "str_replace"
 	insertCommand     = "insert"

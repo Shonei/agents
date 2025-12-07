@@ -52,11 +52,15 @@ func (a *AI) Chat(message string) (string, error) {
 	fmt.Println("Chat started. Press Ctrl+C to exit.")
 
 	if message == "" {
-		fmt.Print("\n> ")
-		input, err := utils.ReadUserInput()
+		input, err := utils.GatherUserContent()
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", err
 		}
+
+		if input == "" {
+			return "", nil
+		}
+
 		message = input
 	}
 
@@ -89,10 +93,9 @@ func (a *AI) Chat(message string) (string, error) {
 		history = updatedHistory
 
 		// Prompt for next user input
-		fmt.Print("\n> ")
-		var nextMessage string
-		if nextMessage, err = utils.ReadUserInput(); err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+		nextMessage, err := utils.GatherUserContent()
+		if err != nil {
+			return "", err
 		}
 
 		if nextMessage == "" {

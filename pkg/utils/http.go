@@ -106,14 +106,14 @@ func (h *HTTPRequest) WithRetry(retry func(int, *http.Response) (int, bool)) *HT
 }
 
 func (h *HTTPRequest) JSONBody(b any) *HTTPRequest {
-	bytes, err := json.Marshal(b)
+	jb, err := json.Marshal(b)
 	if err != nil {
 		h.Error = err
 
 		return h
 	}
 
-	h.Body = bytes
+	h.Body = jb
 
 	return h.WithHeader("Content-Type", "application/json")
 }

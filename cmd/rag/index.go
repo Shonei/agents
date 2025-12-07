@@ -47,11 +47,13 @@ func (r *indexCommand) RunIndex(cmd *cobra.Command, args []string) {
 
 	if r.dirPath != "" {
 		r.indexDir()
+
 		return
 	}
 
 	if r.file != "" {
 		r.indexFile()
+
 		return
 	}
 }

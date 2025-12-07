@@ -43,7 +43,7 @@ func (a *imageGenCmd) Run(cmd *cobra.Command, args []string) {
 	g := gemini.NewAgent(
 		gemini.WithAPIKey(geminiKey),
 		gemini.WithModel(gemini.ModelGeminiImageGen),
-		gemini.WithImageGen(),
+		gemini.WithResponseModalities([]string{"IMAGE", "TEXT"}),
 	)
 
 	fmt.Print("\n> ")

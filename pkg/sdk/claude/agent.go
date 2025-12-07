@@ -22,11 +22,13 @@ const (
 )
 
 type Agent struct {
-	httpClient *utils.HTTPBuilder
-	apiKey     string
-	apiVersion string
-	model      string
-	maxTokens  int
+	httpClient      *utils.HTTPBuilder
+	apiKey          string
+	apiVersion      string
+	model           string
+	maxTokens       int
+	thinkingEnabled bool
+	temperature     float64
 }
 
 // AgentOption is a functional option for configuring the Agent
@@ -36,6 +38,12 @@ type AgentOption func(*Agent)
 func WithAPIKey(apiKey string) AgentOption {
 	return func(a *Agent) {
 		a.apiKey = apiKey
+	}
+}
+
+func WithThinking() AgentOption {
+	return func(a *Agent) {
+		a.thinkingEnabled = true
 	}
 }
 
@@ -50,6 +58,12 @@ func WithModel(model string) AgentOption {
 func WithMaxTokens(maxTokens int) AgentOption {
 	return func(a *Agent) {
 		a.maxTokens = maxTokens
+	}
+}
+
+func WithTemperature(temperature float64) AgentOption {
+	return func(a *Agent) {
+		a.temperature = temperature
 	}
 }
 
@@ -74,7 +88,8 @@ func retry(attempt int, resp *http.Response) (int, bool) {
 		if retryAfterHeader != "" {
 			retryAfter, err := strconv.Atoi(retryAfterHeader)
 			if err == nil {
-				return retryAfter, true
+				// +1 just in case. We are already waiting minutes 1 second won't hurt
+				return retryAfter + 1, true
 			}
 		}
 
@@ -87,11 +102,13 @@ func retry(attempt int, resp *http.Response) (int, bool) {
 // NewAgent creates a new Agent with the given options
 func NewAgent(opts ...AgentOption) *Agent {
 	agent := &Agent{
-		httpClient: utils.NewHTTPBuilder("https://api.anthropic.com"),
-		apiKey:     os.Getenv(EnvAPIKey),
-		apiVersion: DefaultAPIVersion,
-		model:      DefaultModel,
-		maxTokens:  DefaultMaxTokens,
+		httpClient:      utils.NewHTTPBuilder("https://api.anthropic.com"),
+		apiKey:          os.Getenv(EnvAPIKey),
+		apiVersion:      DefaultAPIVersion,
+		model:           DefaultModel,
+		maxTokens:       DefaultMaxTokens,
+		temperature:     0.0,
+		thinkingEnabled: false,
 	}
 
 	for _, opt := range opts {
@@ -99,27 +116,6 @@ func NewAgent(opts ...AgentOption) *Agent {
 	}
 
 	return agent
-}
-
-// SendMessage sends a simple text message to Claude and returns the response
-func (a *Agent) SendMessage(message string) (*sdk.MessageResponse, error) {
-	if a.apiKey == "" {
-		return nil, fmt.Errorf("API key is required. Set %s environment variable or use WithAPIKey option", EnvAPIKey)
-	}
-
-	temperature := 0.0
-
-	// Create the request
-	request := sdk.CreateMessageRequest{
-		Model:     a.model,
-		MaxTokens: a.maxTokens,
-		Messages: []sdk.InputMessage{
-			sdk.NewTextMessage(sdk.RoleUser, message),
-		},
-		Temperature: &temperature,
-	}
-
-	return a.CreateMessage(request)
 }
 
 // CreateMessage sends a message request to the Claude API
@@ -199,20 +195,23 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) CreateMessageReques
 		})
 	}
 
-	return CreateMessageRequest{
-		Model:         req.Model,
+	claudeReq := CreateMessageRequest{
+		Model:         a.model,
 		Messages:      messages,
-		MaxTokens:     req.MaxTokens,
+		MaxTokens:     a.maxTokens,
 		StopSequences: req.StopSequences,
 		Stream:        req.Stream,
 		System:        req.System,
-		Temperature:   req.Temperature,
-		Thinking:      &ThinkingConfig{Type: "enabled", BudgetTokens: 2000},
+		Temperature:   &a.temperature,
 		ToolChoice:    &toolChoices,
 		Tools:         tools,
-		TopK:          req.TopK,
-		TopP:          req.TopP,
 	}
+
+	if a.thinkingEnabled {
+		claudeReq.Thinking = &ThinkingConfig{Type: "enabled", BudgetTokens: 2000}
+	}
+
+	return claudeReq
 }
 
 func (a *Agent) convertResponse(resp MessageResponse) *sdk.MessageResponse {

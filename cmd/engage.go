@@ -48,17 +48,48 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	var aiSDK *sdk.AI
 	switch {
 	case strings.Contains(strings.ToLower(agent.Model), "claude"):
-		aiSDK = sdk.NewAI(claude.NewAgent(
+		opts := []claude.AgentOption{
 			claude.WithAPIKey(a.configFactory.GetAPIKey(agent)),
 			claude.WithModel(agent.Model),
-		), audit.NewAudit(a.configFactory.Config.AuditConfig))
+		}
+
+		if agent.ThinkingEnabled {
+			opts = append(opts, claude.WithThinking())
+		}
+
+		if agent.MaxTokens != nil {
+			opts = append(opts, claude.WithMaxTokens(*agent.MaxTokens))
+		}
+
+		if agent.Temperature != nil {
+			opts = append(opts, claude.WithTemperature(*agent.Temperature))
+		}
+
+		aiSDK = sdk.NewAI(claude.NewAgent(opts...), audit.NewAudit(a.configFactory.Config.AuditConfig))
 
 	case strings.Contains(strings.ToLower(agent.Model), "gemini"):
-		aiSDK = sdk.NewAI(gemini.NewAgent(
+		opts := []gemini.AgentOption{
 			gemini.WithAPIKey(a.configFactory.GetAPIKey(agent)),
 			gemini.WithModel(agent.Model),
-			gemini.WithThinking(),
-		), audit.NewAudit(a.configFactory.Config.AuditConfig))
+		}
+
+		if agent.ThinkingEnabled {
+			opts = append(opts, gemini.WithThinking())
+		}
+
+		if agent.MaxTokens != nil {
+			opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
+		}
+
+		if agent.Temperature != nil {
+			opts = append(opts, gemini.WithTemperature(*agent.Temperature))
+		}
+
+		if agent.ResponseModalities != nil {
+			opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
+		}
+
+		aiSDK = sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(a.configFactory.Config.AuditConfig))
 	default:
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
 

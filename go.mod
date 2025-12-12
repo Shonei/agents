@@ -4,6 +4,7 @@ go 1.25.4
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
+	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/doug-martin/goqu/v9 v9.19.0
 	github.com/duckdb/duckdb-go/v2 v2.5.3
@@ -16,7 +17,6 @@ require (
 )
 
 require (
-	github.com/PuerkitoBio/goquery v1.11.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.20.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/apache/arrow-go/v18 v18.4.1 // indirect
@@ -60,7 +60,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yuin/goldmark v1.7.13 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect

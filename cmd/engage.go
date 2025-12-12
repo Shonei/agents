@@ -38,12 +38,40 @@ func NewEngage(c *config.ConfigFactory) *cobra.Command {
 	return cmd
 }
 
+func (a *engage) createLogger() audit.Logger {
+	c := a.configFactory.Config.AuditConfig
+
+	if !c.Enabled {
+		return audit.NewNoopLogger()
+	}
+
+	switch c.AuditType {
+	case audit.AuditTypeDatabase:
+		store := a.configFactory.GetDB()
+
+		return audit.NewDBLogger(store)
+	case audit.AuditTypeFile:
+		logger, err := audit.NewFileLogger(c.AuditPath)
+		if err != nil {
+			utils.NewExitError().WithMessage("failed to create file logger").WithReason(err).Done()
+		}
+
+		return logger
+	default:
+		utils.NewExitError().WithMessage("unsupported audit type: " + c.AuditType).Done()
+
+		return audit.NewNoopLogger()
+	}
+}
+
 func (a *engage) Run(cmd *cobra.Command, args []string) {
 	a.configFactory.LoadConfig()
 	agentName := args[0]
 
 	// Get the agent configuration by name
 	agent := a.configFactory.GetAgent(agentName)
+
+	auditLogger := a.createLogger()
 
 	var aiSDK *sdk.AI
 	switch {
@@ -65,7 +93,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 			opts = append(opts, claude.WithTemperature(*agent.Temperature))
 		}
 
-		aiSDK = sdk.NewAI(claude.NewAgent(opts...), audit.NewAudit(a.configFactory.Config.AuditConfig))
+		aiSDK = sdk.NewAI(claude.NewAgent(opts...), audit.NewAudit(auditLogger))
 
 	case strings.Contains(strings.ToLower(agent.Model), "gemini"):
 		opts := []gemini.AgentOption{
@@ -89,7 +117,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 			opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
 		}
 
-		aiSDK = sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(a.configFactory.Config.AuditConfig))
+		aiSDK = sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(auditLogger))
 	default:
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
 

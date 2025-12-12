@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	AuditTypeFile = "file"
+	AuditTypeFile     = "file"
+	AuditTypeDatabase = "database"
 
 	InitialMessageEvent   = "initial_message"
 	UserMessageEvent      = "user_message"
@@ -21,12 +22,18 @@ const (
 	FunctionResponseEvent = "function_response"
 )
 
-type logger interface {
-	logEvent(event Event)
-	logUser(user User)
+type Logger interface {
+	LogEvent(event Event)
+	LogUser(user User)
 }
+
+type AuditStore interface {
+	SaveSession(id string, hash string, prompt string) error
+	SaveEvent(id string, sessionID string, eventType string, content string, payload []byte) error
+}
+
 type Audit struct {
-	logger logger
+	logger Logger
 }
 
 type Event struct {
@@ -48,46 +55,14 @@ type AuditConfig struct {
 	AuditPath string `yaml:"path"`
 }
 
-func NewAudit(c AuditConfig) *Audit {
-	if !c.Enabled {
-		return &Audit{
-			logger: &noopAudit{},
-		}
-	}
-
-	switch c.AuditType {
-	case AuditTypeFile:
-		if c.AuditPath == "" {
-			utils.NewExitError().WithMessage("audit path is required when audit type is file").Done()
-		}
-
-		stats, err := os.Stat(c.AuditPath)
-		if err != nil {
-			utils.NewExitError().WithMessage("failed to stat audit path").WithReason(err).Done()
-		}
-
-		if !stats.IsDir() {
-			utils.NewExitError().WithMessage("audit path must be a directory").Done()
-		}
-
-		return &Audit{
-			logger: &fileLogger{
-				path: c.AuditPath,
-			},
-		}
-	default:
-		utils.NewExitError().WithMessage("unsupported audit type: " + c.AuditType).Done()
-	}
-
-	// unreachable
-	// the default error results in an os.Exit(1)
+func NewAudit(logger Logger) *Audit {
 	return &Audit{
-		logger: &noopAudit{},
+		logger: logger,
 	}
 }
 
 func (a *Audit) LogEvent(event Event) {
-	a.logger.logEvent(event)
+	a.logger.LogEvent(event)
 }
 
 func (a *Audit) User(p string) {
@@ -99,7 +74,22 @@ func (a *Audit) User(p string) {
 	idHash.Write([]byte(user.SystemPrompt))
 	user.ID = hex.EncodeToString(idHash.Sum(nil))
 
-	a.logger.logUser(user)
+	a.logger.LogUser(user)
+}
+
+func NewFileLogger(path string) (Logger, error) {
+	stats, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat audit path: %w", err)
+	}
+
+	if !stats.IsDir() {
+		return nil, fmt.Errorf("audit path must be a directory")
+	}
+
+	return &fileLogger{
+		path: path,
+	}, nil
 }
 
 type fileLogger struct {
@@ -107,7 +97,7 @@ type fileLogger struct {
 	auditName string
 }
 
-func (f *fileLogger) logEvent(event Event) {
+func (f *fileLogger) LogEvent(event Event) {
 	b, err := json.Marshal(event)
 	if err != nil {
 		return
@@ -116,7 +106,7 @@ func (f *fileLogger) logEvent(event Event) {
 	f.appendToFile(append(b, '\n'))
 }
 
-func (f *fileLogger) logUser(user User) {
+func (f *fileLogger) LogUser(user User) {
 	salt := time.Now().Unix()
 
 	f.auditName = fmt.Sprintf("%s_%d.json", user.ID, salt)
@@ -152,10 +142,52 @@ func (f *fileLogger) appendToFile(data []byte) {
 	}
 }
 
-type noopAudit struct{}
-
-func (a *noopAudit) logEvent(event Event) {
+func NewNoopLogger() Logger {
+	return &noopAudit{}
 }
 
-func (a *noopAudit) logUser(user User) {
+type noopAudit struct{}
+
+func (a *noopAudit) LogEvent(event Event) {
+}
+
+func (a *noopAudit) LogUser(user User) {
+}
+
+func NewDBLogger(store AuditStore) Logger {
+	return &dbLogger{
+		store: store,
+	}
+}
+
+type dbLogger struct {
+	store     AuditStore
+	sessionID string
+}
+
+func (d *dbLogger) LogEvent(event Event) {
+	if d.sessionID == "" {
+		return
+	}
+
+	var payload any
+	if event.FunctionCall != nil {
+		payload = event.FunctionCall
+	} else if event.FunctionResponse != nil {
+		payload = event.FunctionResponse
+	} else if event.InitialMessage != nil {
+		payload = event.InitialMessage
+	}
+
+	b, _ := json.Marshal(payload)
+
+	id := utils.RandomString(32)
+	d.store.SaveEvent(id, d.sessionID, event.Type, event.Content, b)
+}
+
+func (d *dbLogger) LogUser(user User) {
+	salt := time.Now().UnixNano()
+	d.sessionID = fmt.Sprintf("%s_%d", user.ID, salt)
+
+	d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt)
 }

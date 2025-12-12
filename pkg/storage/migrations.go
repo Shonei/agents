@@ -42,6 +42,32 @@ var registeredMigrations = []migrations{
 			return err
 		},
 	},
+	{
+		name: "create_audit_tables",
+		run: func(db *goqu.Database) error {
+			_, err := db.Exec(`CREATE TABLE IF NOT EXISTS audit_sessions (
+				id TEXT PRIMARY KEY,
+				session_hash TEXT,
+				system_prompt TEXT,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);`)
+			if err != nil {
+				return err
+			}
+
+			_, err = db.Exec(`CREATE TABLE IF NOT EXISTS audit_events (
+				id TEXT PRIMARY KEY,
+				session_id TEXT,
+				type TEXT,
+				content TEXT,
+				payload JSON,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY (session_id) REFERENCES audit_sessions(id)
+			);`)
+
+			return err
+		},
+	},
 }
 
 func initDatabase(db *goqu.Database) error {

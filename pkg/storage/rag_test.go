@@ -274,24 +274,22 @@ func testMetaSearch(t *testing.T, store *Storage) {
 	}
 
 	// Test 1: Search without store filter (should find both)
-	results, err := store.MetaSearch(map[string]string{"type": "test"}, "")
-	if err != nil {
-		t.Fatalf("failed to search meta without store: %v", err)
-	}
-	if len(results) != 2 {
-		t.Errorf("expected 2 results without store filter, got %d", len(results))
+	_, err := store.MetaSearch(map[string]string{"type": "test"}, "")
+	if err == nil {
+		t.Fatalf("expected error when searching without store, got nil")
 	}
 
 	// Test 2: Search with store filter (should find one)
-	results, err = store.MetaSearch(map[string]string{"type": "test"}, storeName)
+	results, err := store.MetaSearch(map[string]string{"type": "test"}, storeName)
 	if err != nil {
 		t.Fatalf("failed to search meta with store: %v", err)
 	}
+
 	if len(results) != 1 {
 		t.Errorf("expected 1 result with store filter, got %d", len(results))
 	}
+
 	if len(results) > 0 && results[0].Store != storeName {
 		t.Errorf("expected result from store %s, got %s", storeName, results[0].Store)
 	}
-}
 }

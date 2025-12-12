@@ -72,23 +72,22 @@ func (s *Storage) AddDocument(d *Document) error {
 
 func (s *Storage) MetaSearch(m map[string]string, store string) ([]Document, error) {
 	if len(m) == 0 {
-		return []Document{}, nil
+		return nil, fmt.Errorf("no meta provided")
+	}
+
+	if store == "" {
+		return nil, fmt.Errorf("store is required")
 	}
 
 	// Build WHERE clause for JSON field matching
 	// DuckDB uses ->> to extract JSON values as strings
-	query := "SELECT meta, content, vec, document_store FROM documents WHERE "
-	args := make([]any, 0, len(m)+1)
+	query := "SELECT meta, content, vec, document_store FROM documents WHERE document_store = ? AND "
+	args := []interface{}{store}
 	conditions := make([]string, 0, len(m)+1)
 
-	if store != "" {
-		conditions = append(conditions, "document_store = ?")
-		args = append(args, store)
-	}
-
 	for key, value := range m {
-		conditions = append(conditions, "meta->>? = ?")
-		args = append(args, key, value)
+		conditions = append(conditions, fmt.Sprintf("json_extract_string(meta, '$.%s') = ?", key))
+		args = append(args, value)
 	}
 
 	for i, cond := range conditions {

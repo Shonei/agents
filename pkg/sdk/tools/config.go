@@ -11,6 +11,7 @@ var availableTools = []sdk.AITool{
 	&BashTool{},
 	&StrReplaceEditorTool{},
 	&RagTool{},
+	&WebSearchTool{},
 }
 
 func Tools() []sdk.AITool {

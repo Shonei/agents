@@ -21,7 +21,7 @@ func (r *RagTool) Name() string {
 }
 
 func (r *RagTool) Description() string {
-	return "Searches a RAG store for documents relevant to a query. The query is embedded and compared against stored documents using vector similarity. The more descriptive the query is the better."
+	return "Searches the project's codebase, documentation, and past chat logs for documents relevant to a query using vector similarity. Use this tool to find relevant code snippets, architectural decisions, or historical context. The query is embedded and compared against the indexed store."
 }
 
 func (r *RagTool) Init(_ map[string]string, c *config.ConfigFactory) {

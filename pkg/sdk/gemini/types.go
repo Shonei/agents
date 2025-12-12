@@ -2,11 +2,13 @@ package gemini
 
 // Constants
 const (
-	RoleUser             = "user"
-	RoleModel            = "model"
-	ModelGemini3         = "gemini-3-pro-preview"
-	ModelGeminiEmbedding = "gemini-embedding-001"
-	ModelGeminiImageGen  = "gemini-2.5-flash-image"
+	RoleUser  = "user"
+	RoleModel = "model"
+
+	ModelGemini3           = "gemini-3-pro-preview"
+	ModelGeminiEmbedding   = "gemini-embedding-001"
+	ModelGeminiImageGen    = "gemini-2.5-flash-image"
+	ModelGemini25FlashLite = "gemini-2.5-flash-lite"
 )
 
 // GenerateContentRequest represents the request body for generating content

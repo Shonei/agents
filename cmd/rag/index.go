@@ -17,6 +17,7 @@ type indexCommand struct {
 	configFactory *config.ConfigFactory
 	dirPath       string
 	file          string
+	strategy      string
 }
 
 // NewIndexCommand implements the `agents rag index` command.
@@ -35,6 +36,7 @@ func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
 
 	flags.StringVar(&r.dirPath, "dir", "", "Path to the directory to index. Files in a .gitignore file will be ignored. If both --dir and --file are set an error will be returned.")
 	flags.StringVar(&r.file, "file", "", "Path to a specific file to index. If both --dir and --file are set an error will be returned.")
+	flags.StringVar(&r.strategy, "strategy", "", "Indexing strategy to use. Defaults to node.")
 
 	return cmd
 }

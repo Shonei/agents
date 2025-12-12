@@ -48,6 +48,16 @@ audit:
 
 **Note:** The directory specified in `path` must exist. Use an absolute path to ensure logs are always written to the same location regardless of your current working directory.
 
+### Audit Viewer
+
+The project includes a web-based **Audit Viewer** for reviewing conversation logs:
+
+```bash
+./start-audit-viewer.sh
+```
+
+Then open http://localhost:3000 in your browser. See [audit-viewer/GUIDE.md](audit-viewer/GUIDE.md) for detailed documentation.
+
 ## Usage
 
 ### Managing Agents

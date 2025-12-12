@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 const viewFIleTestContent = `package tools
@@ -58,14 +59,21 @@ func (t *TimeTool) Call(input map[string]interface{}) (interface{}, error) {
 
 // careful with spaces and tabs when editing. It is hard to see when debugging
 const expectOutput = `<filePath>%s</filePath>
+<fileInfo>
+  Size: 1.0 KB
+  Lines: 48
+  Modified: %s
+</fileInfo>
 <viewRange>5-10 of 48</viewRange>
 <content>
-     5  	"time"
-     6  )
-     7  
-     8  // TimeTool returns the current time
-     9  type TimeTool struct{}
-    10  
+  ⋮ (4 lines above)
+   5  	"time"
+   6  )
+   7  
+   8  // TimeTool returns the current time
+   9  type TimeTool struct{}
+  10  
+  ⋮ (38 lines below)
 </content>
 `
 
@@ -83,6 +91,11 @@ func TestViewFile_readsFile(t *testing.T) {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 
+	fileStat, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("failed to stat test file: %v", err)
+	}
+
 	input := map[string]interface{}{
 		"path":       path,
 		"view_range": []int{5, 10},
@@ -93,7 +106,9 @@ func TestViewFile_readsFile(t *testing.T) {
 		t.Fatalf("failed to view file: %v", err)
 	}
 
-	if result != fmt.Sprintf(expectOutput, path) {
-		t.Fatalf("expected %s, got %s", expectOutput, result)
+	resultWithTime := fmt.Sprintf(expectOutput, path, fileStat.ModTime().Format(time.RFC3339))
+
+	if result != resultWithTime {
+		t.Fatalf("expected %s, got %s", resultWithTime, result)
 	}
 }

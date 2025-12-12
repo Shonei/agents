@@ -118,6 +118,7 @@ func chunkDefault(content string) []string {
 			chunks = append(chunks, c)
 		}
 	}
+
 	return chunks
 }
 

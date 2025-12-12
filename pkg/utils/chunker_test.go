@@ -29,7 +29,7 @@ func (u *User) Greet() {
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.go")
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
@@ -43,15 +43,15 @@ func (u *User) Greet() {
 	// 2. type User (with comment)
 	// 3. func NewUser (with comment)
 	// 4. func Greet
-	
+
 	// The implementation might group package and import together or separate them depending on newlines.
 	// Let's analyze the expected behavior of chunkGoCode:
 	// "package main" starts with 'p' -> top level.
-	// "import ..." starts with 'i' -> top level? No, logic is: 
+	// "import ..." starts with 'i' -> top level? No, logic is:
 	// (line[0] >= 'a' && line[0] <= 'z') && (prefix func/type/const/var)
 	// "package" and "import" are NOT in the list (func, type, const, var).
 	// So "package main" and "import" will likely remain in the "currentChunk" until the first "type User" is encountered.
-	
+
 	// So Chunk 1: package ... import ...
 	// Chunk 2: type User ...
 	// Chunk 3: func NewUser ...
@@ -91,10 +91,10 @@ With multiple lines.
 Second paragraph.
 
 Third paragraph.`
-	
+
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 

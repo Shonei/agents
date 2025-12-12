@@ -1,29 +1,118 @@
 package claude
 
-import "github.com/Shonei/agents/pkg/sdk"
+// Content block type constants
+const (
+	ContentTypeText       = "text"
+	ContentTypeImage      = "image"
+	ContentTypeToolUse    = "tool_use"
+	ContentTypeToolResult = "tool_result"
+	ContentTypeThinking   = "thinking"
+)
 
-// Messages API Request Types
+// ContentBlock represents different types of content blocks
+type ContentBlock struct {
+	Type string `json:"type"`
+	// Text content
+	Text      string `json:"text,omitempty"`
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+
+	// Image content
+	Source *ImageSource `json:"source,omitempty"`
+	// Tool use content
+	ID    string                 `json:"id,omitempty"`
+	Name  string                 `json:"name,omitempty"`
+	Input map[string]interface{} `json:"input,omitempty"`
+	// Tool result content
+	ToolUseID string      `json:"tool_use_id,omitempty"`
+	Content   interface{} `json:"content,omitempty"`
+	IsError   bool        `json:"is_error,omitempty"`
+}
+
+// NewTextContentBlock creates a text content block
+func NewTextContentBlock(text string) ContentBlock {
+	return ContentBlock{
+		Type: ContentTypeText,
+		Text: text,
+	}
+}
+
+// NewToolUseContentBlock creates a tool use content block
+func NewToolUseContentBlock(id, name string, input map[string]interface{}) ContentBlock {
+	return ContentBlock{
+		Type:  ContentTypeToolUse,
+		ID:    id,
+		Name:  name,
+		Input: input,
+	}
+}
+
+// NewToolResultContentBlock creates a tool result content block
+func NewToolResultContentBlock(toolUseID string, content interface{}, isError bool) ContentBlock {
+	return ContentBlock{
+		Type:      ContentTypeToolResult,
+		ToolUseID: toolUseID,
+		Content:   content,
+		IsError:   isError,
+	}
+}
 
 // CreateMessageRequest represents the request body for creating a message
 // This is the internal Claude wire type; it deliberately mirrors sdk.CreateMessageRequest
 // so we can use simple type conversions in the agent while keeping the types distinct.
 type CreateMessageRequest struct {
-	Model         string             `json:"model"`
-	Messages      []sdk.InputMessage `json:"messages"`
-	MaxTokens     int                `json:"max_tokens"`
-	StopSequences []string           `json:"stop_sequences,omitempty"`
-	Stream        bool               `json:"stream,omitempty"`
-	System        sdk.SystemPrompt   `json:"system,omitempty"`
-	Temperature   *float64           `json:"temperature,omitempty"`
-	ToolChoice    *sdk.ToolChoice    `json:"tool_choice,omitempty"`
-	Tools         []sdk.Tool         `json:"tools,omitempty"`
-	TopK          *int               `json:"top_k,omitempty"`
-	TopP          *float64           `json:"top_p,omitempty"`
+	Model         string          `json:"model"`
+	Messages      []InputMessage  `json:"messages"`
+	MaxTokens     int             `json:"max_tokens"`
+	StopSequences []string        `json:"stop_sequences,omitempty"`
+	Stream        bool            `json:"stream,omitempty"`
+	System        SystemPrompt    `json:"system,omitempty"`
+	Temperature   *float64        `json:"temperature,omitempty"`
+	Thinking      *ThinkingConfig `json:"thinking,omitempty"`
+	ToolChoice    *ToolChoice     `json:"tool_choice,omitempty"`
+	Tools         []Tool          `json:"tools,omitempty"`
+	TopK          *int            `json:"top_k,omitempty"`
+	TopP          *float64        `json:"top_p,omitempty"`
 }
+
+// InputMessage represents a message in the conversation
+type InputMessage struct {
+	Role    string         `json:"role"` // "user" or "assistant"
+	Content MessageContent `json:"content"`
+}
+
+// SystemPrompt can be either a string or an array of text blocks
+type SystemPrompt interface{}
+
+// MessageContent can be either a string or an array of content blocks
+type MessageContent interface{}
 
 // CacheControl for prompt caching
 type CacheControl struct {
 	Type string `json:"type"` // "ephemeral"
+}
+
+// ImageSource represents an image source
+type ImageSource struct {
+	Type      string `json:"type"` // "base64" or "url"
+	MediaType string `json:"media_type,omitempty"`
+	Data      string `json:"data,omitempty"`
+	URL       string `json:"url,omitempty"`
+}
+
+// Tool represents a tool definition
+type Tool struct {
+	Type        string                 `json:"type,omitempty"` // "custom" or null
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	InputSchema map[string]interface{} `json:"input_schema"`
+}
+
+// ToolChoice represents how the model should use tools
+type ToolChoice struct {
+	Type                   string `json:"type"` // "auto", "any", "tool", or "none"
+	Name                   string `json:"name,omitempty"`
+	DisableParallelToolUse bool   `json:"disable_parallel_tool_use,omitempty"`
 }
 
 // ThinkingConfig for extended thinking
@@ -85,14 +174,37 @@ type RequestMCPServerURL struct {
 // This is the internal Claude wire type; it mirrors sdk.MessageResponse so
 // we can use simple type conversions in the agent while keeping the types distinct.
 type MessageResponse struct {
-	ID           string                     `json:"id"`
-	Type         string                     `json:"type"` // "message"
-	Role         string                     `json:"role"` // "assistant"
-	Content      []sdk.ResponseContentBlock `json:"content"`
-	Model        string                     `json:"model"`
-	StopReason   *string                    `json:"stop_reason"`
-	StopSequence *string                    `json:"stop_sequence"`
-	Usage        sdk.Usage                  `json:"usage"`
+	ID           string                 `json:"id"`
+	Type         string                 `json:"type"` // "message"
+	Role         string                 `json:"role"` // "assistant"
+	Content      []ResponseContentBlock `json:"content"`
+	Model        string                 `json:"model"`
+	StopReason   *string                `json:"stop_reason"`
+	StopSequence *string                `json:"stop_sequence"`
+	Usage        Usage                  `json:"usage"`
+}
+
+// Usage represents token usage information
+type Usage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// ResponseContentBlock represents different types of response content blocks
+type ResponseContentBlock struct {
+	Type string `json:"type"`
+
+	// Text block
+	Text string `json:"text,omitempty"`
+
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+
+	// Tool use block
+	ID               string                 `json:"id,omitempty"`
+	Name             string                 `json:"name,omitempty"`
+	Input            map[string]interface{} `json:"input,omitempty"`
+	ThoughtSignature string                 `json:"thought_signature,omitempty"`
 }
 
 // ResponseCitation represents a citation in the response
@@ -156,46 +268,15 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-// Specific error types
-const (
-	ErrorTypeInvalidRequest = "invalid_request_error"
-	ErrorTypeAuthentication = "authentication_error"
-	ErrorTypeBilling        = "billing_error"
-	ErrorTypePermission     = "permission_error"
-	ErrorTypeNotFound       = "not_found_error"
-	ErrorTypeRateLimit      = "rate_limit_error"
-	ErrorTypeGatewayTimeout = "timeout_error"
-	ErrorTypeAPI            = "api_error"
-	ErrorTypeOverloaded     = "overloaded_error"
-)
-
-// Stop reason constants
-const (
-	StopReasonEndTurn                    = "end_turn"
-	StopReasonMaxTokens                  = "max_tokens"
-	StopReasonStopSequence               = "stop_sequence"
-	StopReasonToolUse                    = "tool_use"
-	StopReasonPauseTurn                  = "pause_turn"
-	StopReasonRefusal                    = "refusal"
-	StopReasonModelContextWindowExceeded = "model_context_window_exceeded"
-)
-
-// Content block type constants
-const (
-	ContentTypeText       = sdk.ContentTypeText
-	ContentTypeImage      = sdk.ContentTypeImage
-	ContentTypeToolUse    = sdk.ContentTypeToolUse
-	ContentTypeToolResult = sdk.ContentTypeToolResult
-	ContentTypeThinking   = "thinking"
-)
-
-// Role constants
-const (
-	RoleUser      = sdk.RoleUser
-	RoleAssistant = sdk.RoleAssistant
-)
-
 // Model constants
 const (
 	ModelClaude45 = "claude-sonnet-4-5-20250929"
 )
+
+// NewTextMessage creates a simple text message
+func NewTextMessage(role, text string) InputMessage {
+	return InputMessage{
+		Role:    role,
+		Content: text,
+	}
+}

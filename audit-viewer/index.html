@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Viewer - Enhanced</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+
+    #root {
+      min-height: 100vh;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 300px;
+      background: #1a1a1a;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .sidebar h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    .audit-list {
+      list-style: none;
+    }
+
+    .audit-item {
+      padding: 12px;
+      margin-bottom: 8px;
+      background: #252525;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .audit-item:hover {
+      background: #2a2a2a;
+      border-color: #444;
+    }
+
+    .audit-item.active {
+      background: #2d4a7c;
+      border-color: #4a7ac9;
+    }
+
+    .audit-hash {
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .audit-date {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 40px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+
+    .error {
+      background: #5c1919;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #8b2e2e;
+    }
+
+    .message-block {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      border-left: 4px solid #444;
+    }
+
+    .message-block.system {
+      border-left-color: #7c2d87;
+      background: #1f1a21;
+    }
+
+    .message-block.user {
+      border-left-color: #4a7ac9;
+      background: #1a2133;
+    }
+
+    .message-block.assistant {
+      border-left-color: #2d8b57;
+      background: #1a2520;
+    }
+
+    .message-block.function {
+      border-left-color: #c97a4a;
+      background: #2b2119;
+    }
+
+    .message-block.function-response {
+      border-left-color: #4ac98d;
+      background: #19312b;
+    }
+
+    .message-type {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+      opacity: 0.7;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tool-icon {
+      font-size: 14px;
+    }
+
+    .response-meta {
+      margin-left: auto;
+      font-size: 10px;
+      opacity: 0.6;
+      text-transform: none;
+      font-weight: normal;
+    }
+
+    .function-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .collapse-btn, .show-raw-btn, .expand-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e0e0e0;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+
+    .collapse-btn:hover, .show-raw-btn:hover, .expand-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .expand-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+    }
+
+    .show-raw-btn {
+      margin-top: 12px;
+    }
+
+    .function-input-label {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 8px;
+    }
+
+    .collapsed-preview {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+      font-size: 12px;
+      opacity: 0.7;
+      border-left: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .collapsed-preview code {
+      background: none;
+      padding: 0;
+      color: #9cdcfe;
+      font-size: 11px;
+    }
+
+    .message-content {
+      line-height: 1.7;
+    }
+
+    .markdown {
+      color: #e0e0e0;
+    }
+
+    .markdown h1, .markdown h2, .markdown h3 {
+      margin-top: 24px;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .markdown h1 {
+      font-size: 28px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
+
+    .markdown h2 {
+      font-size: 22px;
+    }
+
+    .markdown h3 {
+      font-size: 18px;
+    }
+
+    .markdown p {
+      margin-bottom: 12px;
+    }
+
+    .markdown code {
+      background: #0a0a0a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      color: #ff6b6b;
+    }
+
+    .markdown pre {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 16px 0;
+      border: 1px solid #222;
+    }
+
+    .markdown pre code {
+      background: none;
+      padding: 0;
+      color: #e0e0e0;
+    }
+
+    .markdown ul, .markdown ol {
+      margin-left: 24px;
+      margin-bottom: 12px;
+    }
+
+    .markdown li {
+      margin-bottom: 6px;
+    }
+
+    .markdown blockquote {
+      border-left: 3px solid #555;
+      padding-left: 16px;
+      margin: 16px 0;
+      color: #aaa;
+    }
+
+    .markdown a {
+      color: #6ba3ff;
+      text-decoration: none;
+    }
+
+    .markdown a:hover {
+      text-decoration: underline;
+    }
+
+    .markdown table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+    }
+
+    .markdown th, .markdown td {
+      border: 1px solid #333;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .markdown th {
+      background: #252525;
+      font-weight: 600;
+    }
+
+    .json-block {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin-top: 12px;
+      border: 1px solid #222;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      position: relative;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: #666;
+    }
+
+    .empty-state h2 {
+      font-size: 24px;
+      margin-bottom: 12px;
+      color: #888;
+    }
+
+    /* New styles for enhanced tool responses */
+
+    .structured-response {
+      margin-top: 8px;
+    }
+
+    .response-metadata {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .metadata-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .metadata-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .metadata-key {
+      font-weight: 600;
+      color: #aaa;
+      min-width: 100px;
+    }
+
+    .metadata-value {
+      background: #0a0a0a;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      color: #6ba3ff;
+      flex: 1;
+    }
+
+    .collapsible-code {
+      margin-top: 12px;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px 6px 0 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: none;
+    }
+
+    .code-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #aaa;
+    }
+
+    .code-block {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 0 0 6px 6px;
+      overflow-x: auto;
+      border: 1px solid #222;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .code-block code {
+      background: none;
+      padding: 0;
+      color: #e0e0e0;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e0e0e0;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+
+    .copy-btn.small {
+      position: static;
+      padding: 2px 6px;
+      font-size: 10px;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .raw-response {
+      margin-top: 12px;
+      position: relative;
+    }
+
+    .raw-response pre {
+      background: #0a0a0a;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      border: 1px solid #222;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      color: #888;
+    }
+
+    .json-response, .text-response {
+      position: relative;
+    }
+
+    .response-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .response-type-badge {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .json-badge {
+      background: rgba(181, 206, 168, 0.2);
+      color: #b5cea8;
+    }
+
+    .response-meta-info {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .json-block-wrapper {
+      position: relative;
+    }
+
+    .json-block-wrapper .copy-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/app.tsx"></script>
+</body>
+</html>

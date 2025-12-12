@@ -6,17 +6,12 @@ import "encoding/json"
 
 // CreateMessageRequest represents the request body for creating a message
 type CreateMessageRequest struct {
-	Model         string         `json:"model"`
 	Messages      []InputMessage `json:"messages"`
-	MaxTokens     int            `json:"max_tokens"`
 	StopSequences []string       `json:"stop_sequences,omitempty"`
 	Stream        bool           `json:"stream,omitempty"`
 	System        SystemPrompt   `json:"system,omitempty"`
-	Temperature   *float64       `json:"temperature,omitempty"`
 	ToolChoice    *ToolChoice    `json:"tool_choice,omitempty"`
 	Tools         []Tool         `json:"tools,omitempty"`
-	TopK          *int           `json:"top_k,omitempty"`
-	TopP          *float64       `json:"top_p,omitempty"`
 }
 
 // InputMessage represents a message in the conversation
@@ -69,7 +64,7 @@ type ContentBlock struct {
 	// Text content
 	Text string `json:"text,omitempty"`
 	// Image content
-	Source *ImageSource `json:"source,omitempty"`
+	Source *Blob `json:"source,omitempty"`
 	// Tool use content
 	ID    string                 `json:"id,omitempty"`
 	Name  string                 `json:"name,omitempty"`
@@ -125,11 +120,18 @@ type ResponseContentBlock struct {
 	// Text block
 	Text string `json:"text,omitempty"`
 
+	Blob *Blob `json:"blob,omitempty"`
+
 	// Tool use block
 	ID               string                 `json:"id,omitempty"`
 	Name             string                 `json:"name,omitempty"`
 	Input            map[string]interface{} `json:"input,omitempty"`
 	ThoughtSignature string                 `json:"thought_signature,omitempty"`
+}
+
+type Blob struct {
+	MimeType string `json:"mime_type"`
+	Data     string `json:"data"`
 }
 
 // Usage represents token usage information

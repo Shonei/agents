@@ -2,12 +2,16 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/sdk/audit"
+	"github.com/Shonei/agents/pkg/sdk/claude"
+	"github.com/Shonei/agents/pkg/sdk/gemini"
+	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -41,22 +45,62 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	// Get the agent configuration by name
 	agent := a.configFactory.GetAgent(agentName)
 
-	// Resolve the model factory
-	modelFactory, ok := Models()[agent.Model]
-	if !ok {
+	var aiSDK *sdk.AI
+	switch {
+	case strings.Contains(strings.ToLower(agent.Model), "claude"):
+		opts := []claude.AgentOption{
+			claude.WithAPIKey(a.configFactory.GetAPIKey(agent)),
+			claude.WithModel(agent.Model),
+		}
+
+		if agent.ThinkingEnabled {
+			opts = append(opts, claude.WithThinking())
+		}
+
+		if agent.MaxTokens != nil {
+			opts = append(opts, claude.WithMaxTokens(*agent.MaxTokens))
+		}
+
+		if agent.Temperature != nil {
+			opts = append(opts, claude.WithTemperature(*agent.Temperature))
+		}
+
+		aiSDK = sdk.NewAI(claude.NewAgent(opts...), audit.NewAudit(a.configFactory.Config.AuditConfig))
+
+	case strings.Contains(strings.ToLower(agent.Model), "gemini"):
+		opts := []gemini.AgentOption{
+			gemini.WithAPIKey(a.configFactory.GetAPIKey(agent)),
+			gemini.WithModel(agent.Model),
+		}
+
+		if agent.ThinkingEnabled {
+			opts = append(opts, gemini.WithThinking())
+		}
+
+		if agent.MaxTokens != nil {
+			opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
+		}
+
+		if agent.Temperature != nil {
+			opts = append(opts, gemini.WithTemperature(*agent.Temperature))
+		}
+
+		if agent.ResponseModalities != nil {
+			opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
+		}
+
+		aiSDK = sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(a.configFactory.Config.AuditConfig))
+	default:
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
+
+		return
 	}
-
-	apiKey := a.configFactory.GetAPIKey(agent)
-
-	// Initialize the agent
-	ai := modelFactory(agent, apiKey, audit.NewAudit(a.configFactory.Config.AuditConfig))
 
 	// Register tools
 	for _, toolName := range agent.Tools {
 		found := false
 
-		for _, tool := range Tools() {
+		for _, tool := range tools.Tools() {
 			if tool.Name() == toolName.Name {
 				found = true
 
@@ -65,7 +109,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 				}
 
 				tool.Init(toolName.Config, a.configFactory)
-				ai.RegisterTool(tool)
+				aiSDK.RegisterTool(tool)
 
 				break
 			}
@@ -84,11 +128,11 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 			utils.NewExitError().WithMessage("failed to render prompt").WithReason(err).Done()
 		}
 
-		ai.SetSystemPrompt(rendered)
+		aiSDK.SetSystemPrompt(rendered)
 	}
 
 	// Send the message to Claude
-	response, err := ai.Chat(a.prompt)
+	response, err := aiSDK.Chat(a.prompt)
 	if err != nil {
 		utils.NewExitError().WithMessage("failed to engage agent").WithReason(err).Done()
 	}

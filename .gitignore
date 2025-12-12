@@ -3,8 +3,13 @@ dp.yaml
 agents
 .idea/
 
+image_*
 agents.db
 agents.db.wal
 main
 audit/
 pkg/storage/testfiles/test.*
+audit-ui/node_modules/
+audit-ui/dist/
+audit-viewer/node_modules/
+audit-viewer/bun.lock

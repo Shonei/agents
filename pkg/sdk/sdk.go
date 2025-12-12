@@ -1,9 +1,13 @@
 package sdk
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/fatih/color"
@@ -52,11 +56,15 @@ func (a *AI) Chat(message string) (string, error) {
 	fmt.Println("Chat started. Press Ctrl+C to exit.")
 
 	if message == "" {
-		fmt.Print("\n> ")
-		input, err := utils.ReadUserInput()
+		input, err := utils.GatherUserContent()
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return "", err
 		}
+
+		if input == "" {
+			return "", nil
+		}
+
 		message = input
 	}
 
@@ -89,10 +97,9 @@ func (a *AI) Chat(message string) (string, error) {
 		history = updatedHistory
 
 		// Prompt for next user input
-		fmt.Print("\n> ")
-		var nextMessage string
-		if nextMessage, err = utils.ReadUserInput(); err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+		nextMessage, err := utils.GatherUserContent()
+		if err != nil {
+			return "", err
 		}
 
 		if nextMessage == "" {
@@ -128,8 +135,6 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 	// Loop until we get a response without tool calls
 	for {
 		request := CreateMessageRequest{
-			Model:      a.agent.Model(),
-			MaxTokens:  a.agent.MaxTokens(),
 			Messages:   messages,
 			Tools:      c.tools,
 			ToolChoice: NewAutoToolChoice(),
@@ -172,6 +177,7 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				Name:             block.Name,
 				Input:            block.Input,
 				ThoughtSignature: block.ThoughtSignature,
+				Source:           block.Blob,
 			})
 
 			if block.Type == ContentTypeToolUse {
@@ -202,7 +208,40 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				continue
 			}
 
-			if block.Type != ContentTypeToolUse {
+			if block.Type == ContentTypeImage {
+				cwd, err := os.Getwd()
+				if err != nil {
+					utils.NewExitError().WithMessage("failed to get current directory").WithReason(err).Done()
+				}
+
+				imageBytes, err := base64.StdEncoding.DecodeString(block.Blob.Data)
+				if err != nil {
+					utils.NewExitError().WithMessage("failed to decode image").WithReason(err).Done()
+				}
+
+				randSuffix := utils.RandomString(5)
+
+				imageFormat := "png"
+				contentTypeParts := strings.Split(block.Blob.MimeType, "/")
+				if len(contentTypeParts) == 2 {
+					imageFormat = contentTypeParts[1]
+				}
+
+				// Write the image to a file
+				fileName := fmt.Sprintf("image_%s.%s", randSuffix, imageFormat)
+
+				err = os.WriteFile(filepath.Join(cwd, fileName), imageBytes, 0o600)
+				if err != nil {
+					utils.NewExitError().WithMessage("failed to write image to file").WithReason(err).Done()
+				}
+
+				color.New(color.FgBlue, color.Bold).Print("CLI:\n")
+				fmt.Printf("\tImage saved to %s\n", fileName)
+
+				continue
+			}
+
+			if block.Type == ContentTypeText {
 				color.New(color.FgBlue, color.Bold).Print("Assistant: ")
 
 				// Render markdown
@@ -213,6 +252,8 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				} else {
 					fmt.Print(out)
 				}
+
+				continue
 			}
 		}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +38,7 @@ func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
 
 	flags.StringVar(&r.dirPath, "dir", "", "Path to the directory to index. Files in a .gitignore file will be ignored. If both --dir and --file are set an error will be returned.")
 	flags.StringVar(&r.file, "file", "", "Path to a specific file to index. If both --dir and --file are set an error will be returned.")
-	flags.StringVar(&r.strategy, "strategy", "", "Indexing strategy to use. Defaults to node.")
+	flags.StringVar(&r.strategy, "strategy", "", "Indexing strategy to use. Defaults to 'none'. Available strategies: 'none', 'summary'.")
 
 	cmd.AddCommand(NewSummaryCommand(c))
 
@@ -62,6 +63,8 @@ func (r *indexCommand) RunIndex(cmd *cobra.Command, args []string) {
 
 		return
 	}
+
+	utils.NewExitError().WithMessage("no path provided. Please use --dir or --file").Done()
 }
 
 func (r *indexCommand) indexFile() {
@@ -142,10 +145,27 @@ func (r *indexCommand) indexDir() {
 	}
 
 	for _, file := range files {
+		// check if file is already indexed
+
+		metaSearch, err := store.MetaSearch(map[string]string{
+			"path": file.Path,
+		})
+		if err != nil {
+			utils.NewExitError().WithMessage("failed to search meta").WithReason(err).Done()
+		}
+
+		if len(metaSearch) > 0 {
+			fmt.Printf("File %s already indexed\n", file.Path)
+
+			continue
+		}
+
 		chunks, err := strategy(file.Content)
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to chunk content").WithReason(err).Done()
 		}
+
+		fmt.Printf("Indexing file %s\n", file.Path)
 
 		for i, chunk := range chunks {
 			vec, err := g.Embedding(chunk)
@@ -155,6 +175,7 @@ func (r *indexCommand) indexDir() {
 
 			fileMeta := map[string]string{
 				"path":         file.Path,
+				"indexed_at":   time.Now().Format(time.RFC3339),
 				"size":         fmt.Sprintf("%d", len(file.Content)),
 				"ext":          filepath.Ext(file.Path),
 				"chunk":        fmt.Sprintf("%d", i),

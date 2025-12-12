@@ -35,6 +35,7 @@ func convertVec(vecAny []any) ([]float32, error) {
 			return nil, fmt.Errorf("unexpected element type %T in vec column", v)
 		}
 	}
+
 	return vec, nil
 }
 
@@ -43,6 +44,7 @@ func convertMeta(metaAny map[string]any) map[string]string {
 	for k, v := range metaAny {
 		meta[k] = fmt.Sprintf("%v", v)
 	}
+
 	return meta
 }
 

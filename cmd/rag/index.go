@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Shonei/agents/cmd/rag/index"
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/storage"
@@ -37,6 +38,8 @@ func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
 	flags.StringVar(&r.dirPath, "dir", "", "Path to the directory to index. Files in a .gitignore file will be ignored. If both --dir and --file are set an error will be returned.")
 	flags.StringVar(&r.file, "file", "", "Path to a specific file to index. If both --dir and --file are set an error will be returned.")
 	flags.StringVar(&r.strategy, "strategy", "", "Indexing strategy to use. Defaults to node.")
+
+	cmd.AddCommand(NewSummaryCommand(c))
 
 	return cmd
 }
@@ -133,27 +136,62 @@ func (r *indexCommand) indexDir() {
 		gemini.WithEmbeddingDim(storage.SearchVectorSize),
 	)
 
+	strategy, err := r.getStrategy()
+	if err != nil {
+		utils.NewExitError().WithMessage("failed to get strategy").WithReason(err).Done()
+	}
+
 	for _, file := range files {
-		fileMeta := map[string]string{
-			"path": file.Path,
-			"size": fmt.Sprintf("%d", len(file.Content)),
-			"ext":  filepath.Ext(file.Path),
-		}
-
-		vec, err := g.Embedding(file.Content)
+		chunks, err := strategy(file.Content)
 		if err != nil {
-			utils.NewExitError().WithMessage("failed to create embedding").WithReason(err).Done()
+			utils.NewExitError().WithMessage("failed to chunk content").WithReason(err).Done()
 		}
 
-		doc := &storage.Document{
-			Content: file.Content,
-			Meta:    fileMeta,
-			Store:   storeName,
-			Vec:     vec,
-		}
+		for i, chunk := range chunks {
+			vec, err := g.Embedding(chunk)
+			if err != nil {
+				utils.NewExitError().WithMessage("failed to create embedding").WithReason(err).Done()
+			}
 
-		if err := store.AddDocument(doc); err != nil {
-			utils.NewExitError().WithMessage("failed to store document").WithReason(err).Done()
+			fileMeta := map[string]string{
+				"path":         file.Path,
+				"size":         fmt.Sprintf("%d", len(file.Content)),
+				"ext":          filepath.Ext(file.Path),
+				"chunk":        fmt.Sprintf("%d", i),
+				"total_chunks": fmt.Sprintf("%d", len(chunks)),
+				"strategy":     r.strategy,
+				"file_content": file.Content,
+			}
+
+			doc := &storage.Document{
+				Content: chunk,
+				Meta:    fileMeta,
+				Store:   storeName,
+				Vec:     vec,
+			}
+
+			if err := store.AddDocument(doc); err != nil {
+				utils.NewExitError().WithMessage("failed to store document").WithReason(err).Done()
+			}
 		}
 	}
+}
+
+func (r *indexCommand) getStrategy() (func(string) ([]string, error), error) {
+	if r.strategy == "" {
+		return func(s string) ([]string, error) {
+			return []string{s}, nil
+		}, nil
+	}
+
+	if r.strategy == "summary" {
+		strats, err := index.NewSummaryStrategy(r.configFactory)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create summary strategy: %w", err)
+		}
+
+		return strats.Summarize, nil
+	}
+
+	return nil, fmt.Errorf("unknown strategy: %s", r.strategy)
 }

@@ -25,18 +25,29 @@ func NewSummaryStrategy(c *config.ConfigFactory) (*SummaryStrategy, error) {
 }
 
 func (s *SummaryStrategy) Summarize(content string) ([]string, error) {
-	sysPrompt := `You are an expert at summarizing technical content. 
-Please analyze the provided text and generate a structured summary.
-Break the summary into logical, self-contained sections.
+	sysPrompt := `You are an expert software engineer specialized in code analysis and documentation.
+The provided text is primarily source code. Your task is to generate a structured summary suitable for a RAG (Retrieval-Augmented Generation) system.
+This summary will be used to index the code for semantic search, so it is critical that you capture the intent, functionality, and key logic of the code.
 
-Wrap each section in a <chunk> tag.
-Example:
+Break the content into logical, self-contained sections.
+For each section:
+1. Identify the relevant block of original code (e.g., a function, a struct definition, or a logical block).
+2. Write a detailed summary that explains:
+    - What the code does.
+    - How it works.
+    - Key inputs and outputs.
+    - Important implementation details.
+3. Wrap each section in a <chunk> tag.
+
+Structure each chunk as follows:
 <chunk>
-First key point or section summary...
+Original Content:
+[Insert the relevant excerpt from original text here]
+
+Summary:
+[Insert the detailed technical summary here]
 </chunk>
-<chunk>
-Second key point or section summary...
-</chunk>
+
 Do not include any text outside the <chunk> tags.`
 
 	req := sdk.CreateMessageRequest{
@@ -52,6 +63,7 @@ Do not include any text outside the <chunk> tags.`
 	}
 
 	response := resp.GetTextContent()
+
 	return extractChunks(response), nil
 }
 

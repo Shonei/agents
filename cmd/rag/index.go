@@ -148,7 +148,6 @@ func (r *indexCommand) indexDir() {
 
 	for _, file := range files {
 		// check if file is already indexed
-
 		metaSearch, err := store.MetaSearch(map[string]string{
 			"path": file.Path,
 		}, storeName)

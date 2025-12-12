@@ -18,8 +18,10 @@ type executeCommand struct {
 }
 
 // NewExecuteCommand implements the `agents tools execute <tool_name> <params>...` command.
-func NewExecuteCommand() *cobra.Command {
-	e := &executeCommand{}
+func NewExecuteCommand(c *config.ConfigFactory) *cobra.Command {
+	e := &executeCommand{
+		configFactory: c,
+	}
 
 	cmd := &cobra.Command{
 		Use:   "execute <tool_name> [params...]",

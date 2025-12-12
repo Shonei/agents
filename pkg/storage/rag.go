@@ -21,6 +21,33 @@ type Store struct {
 	DocumentCount int
 }
 
+func convertVec(vecAny []any) ([]float32, error) {
+	vec := make([]float32, len(vecAny))
+	for i, v := range vecAny {
+		switch n := v.(type) {
+		case float32:
+			vec[i] = n
+		case float64:
+			vec[i] = float32(n)
+		case int64:
+			vec[i] = float32(n)
+		default:
+			return nil, fmt.Errorf("unexpected element type %T in vec column", v)
+		}
+	}
+
+	return vec, nil
+}
+
+func convertMeta(metaAny map[string]any) map[string]string {
+	meta := make(map[string]string, len(metaAny))
+	for k, v := range metaAny {
+		meta[k] = fmt.Sprintf("%v", v)
+	}
+
+	return meta
+}
+
 func (s *Storage) AddDocument(d *Document) error {
 	if len(d.Vec) != s.vecSize {
 		return fmt.Errorf("vector has length %d, expected %d", len(d.Vec), s.vecSize)
@@ -41,6 +68,72 @@ func (s *Storage) AddDocument(d *Document) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) MetaSearch(m map[string]string, store string) ([]Document, error) {
+	if len(m) == 0 {
+		return nil, fmt.Errorf("no meta provided")
+	}
+
+	if store == "" {
+		return nil, fmt.Errorf("store is required")
+	}
+
+	// Build WHERE clause for JSON field matching
+	// DuckDB uses ->> to extract JSON values as strings
+	query := "SELECT meta, content, vec, document_store FROM documents WHERE document_store = ? AND "
+	args := []interface{}{store}
+	conditions := make([]string, 0, len(m)+1)
+
+	for key, value := range m {
+		conditions = append(conditions, fmt.Sprintf("json_extract_string(meta, '$.%s') = ?", key))
+		args = append(args, value)
+	}
+
+	for i, cond := range conditions {
+		if i > 0 {
+			query += " AND "
+		}
+		query += cond
+	}
+
+	rows, err := s.goquDB.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute meta search query: %w", err)
+	}
+	defer rows.Close()
+
+	var results []Document
+	for rows.Next() {
+		var (
+			metaAny   map[string]any
+			content   string
+			vecAny    []any
+			storeName string
+		)
+
+		if err := rows.Scan(&metaAny, &content, &vecAny, &storeName); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		vec, err := convertVec(vecAny)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, Document{
+			Vec:     vec,
+			Meta:    convertMeta(metaAny),
+			Content: content,
+			Store:   storeName,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("meta search iteration error: %w", err)
+	}
+
+	return results, nil
 }
 
 func (s *Storage) ListStores() ([]Store, error) {
@@ -110,28 +203,14 @@ func (s *Storage) Search(searchVec []float32, store string, limit int) ([]Docume
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		vec := make([]float32, len(vecAny))
-		for i, v := range vecAny {
-			switch n := v.(type) {
-			case float32:
-				vec[i] = n
-			case float64:
-				vec[i] = float32(n)
-			case int64:
-				vec[i] = float32(n)
-			default:
-				return nil, fmt.Errorf("unexpected element type %T in vec column", v)
-			}
-		}
-
-		meta := map[string]string{}
-		for k, v := range metaAny {
-			meta[k] = fmt.Sprintf("%v", v)
+		vec, err := convertVec(vecAny)
+		if err != nil {
+			return nil, err
 		}
 
 		results = append(results, Document{
 			Vec:      vec,
-			Meta:     meta,
+			Meta:     convertMeta(metaAny),
 			Content:  content,
 			Store:    storeName,
 			Distance: distance,

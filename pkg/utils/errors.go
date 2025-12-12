@@ -55,7 +55,6 @@ func (e *ExitError) Code() int {
 
 // CheckError handles the error nad calls os.Exit
 // If the error is not an ExitError, it is printed to stderr and the application exits with code 1
-// If the error is an APIError, it is converted to an ExitError and handled as such
 // If the error is nil, nothing happens
 func CheckError(err error) {
 	if err == nil {
@@ -87,15 +86,8 @@ func CheckError(err error) {
 				messageBuilder.WriteString("\n")
 			}
 
-			apiReasonErr := &APIError{}
 			messageBuilder.WriteString("Reason:\n  ")
-
-			if errors.As(exitErr.Reason, &apiReasonErr) {
-				messageBuilder.WriteString(fmt.Sprintf("API Message: %s\n", apiReasonErr.Message))
-				messageBuilder.WriteString(fmt.Sprintf("  API Details: %s\n", apiReasonErr.Details))
-			} else {
-				messageBuilder.WriteString(strings.ReplaceAll(exitErr.Reason.Error(), "\n", "\n  "))
-			}
+			messageBuilder.WriteString(strings.ReplaceAll(exitErr.Reason.Error(), "\n", "\n  "))
 
 			if !strings.HasSuffix(messageBuilder.String(), "\n") {
 				messageBuilder.WriteString("\n")
@@ -106,22 +98,6 @@ func CheckError(err error) {
 		os.Exit(exitErr.Code())
 	}
 
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		// How efficient
-		// If anyone asks we blame AI
-		CheckError(NewExitError().WithMessage(apiErr.Message).WithReason(apiErr))
-	}
-
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
-}
-
-type APIError struct {
-	Message string `json:"message"`
-	Details string `json:"details"`
-}
-
-func (a *APIError) Error() string {
-	return fmt.Sprintf("%s: %s", a.Message, a.Details)
 }

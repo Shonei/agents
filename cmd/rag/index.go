@@ -32,8 +32,9 @@ func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&r.dirPath, "dir", "", "Path to the directory to index. Files in a .gitignore file will be ignored. If both --fir and --file are set an error will be retuned.")
-	flags.StringVar(&r.file, "file", "", "Path to a specific file to index. If both --dir and --file are set an error will be retuned.")
+
+	flags.StringVar(&r.dirPath, "dir", "", "Path to the directory to index. Files in a .gitignore file will be ignored. If both --dir and --file are set an error will be returned.")
+	flags.StringVar(&r.file, "file", "", "Path to a specific file to index. If both --dir and --file are set an error will be returned.")
 
 	return cmd
 }

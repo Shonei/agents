@@ -87,6 +87,7 @@ agents add \
 *   `ask_user`: Ask the user a question.
 *   `time`: Get the current date and time.
 *   `rag`: Search information in your local code base.
+*   `memory`: Long-term memory storage (store/retrieve).
 
 #### System Prompt Templating
 System prompts support dynamic content via Go templates (e.g., adding current time or file listings).

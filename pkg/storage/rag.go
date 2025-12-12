@@ -70,7 +70,7 @@ func (s *Storage) AddDocument(d *Document) error {
 	return nil
 }
 
-func (s *Storage) MetaSearch(m map[string]string) ([]Document, error) {
+func (s *Storage) MetaSearch(m map[string]string, store string) ([]Document, error) {
 	if len(m) == 0 {
 		return []Document{}, nil
 	}
@@ -78,8 +78,13 @@ func (s *Storage) MetaSearch(m map[string]string) ([]Document, error) {
 	// Build WHERE clause for JSON field matching
 	// DuckDB uses ->> to extract JSON values as strings
 	query := "SELECT meta, content, vec, document_store FROM documents WHERE "
-	args := make([]any, 0, len(m))
-	conditions := make([]string, 0, len(m))
+	args := make([]any, 0, len(m)+1)
+	conditions := make([]string, 0, len(m)+1)
+
+	if store != "" {
+		conditions = append(conditions, "document_store = ?")
+		args = append(args, store)
+	}
 
 	for key, value := range m {
 		conditions = append(conditions, "meta->>? = ?")

@@ -29,7 +29,7 @@ func Execute() {
 
 	rag := NewRAG(configFactory)
 	prompt := NewSystemPrompt(configFactory)
-	tools := NewTools()
+	tools := NewTools(configFactory)
 
 	rootCmd.AddCommand(add)
 	rootCmd.AddCommand(list)

@@ -121,6 +121,7 @@ func (a *Agent) Embedding(message string) ([]float32, error) {
 		WithMethod(http.MethodPost).
 		WithHeader("x-goog-api-key", a.apiKey).
 		WithPath(urlPath).
+		WithRetry(retry).
 		JSONBody(req).
 		Into(&resp).
 		Do()
@@ -373,4 +374,16 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 			OutputTokens: resp.UsageMetadata.CandidatesTokenCount,
 		},
 	}, nil
+}
+
+func retry(attempt int, resp *http.Response) (int, bool) {
+	if attempt > 3 {
+		return 0, false
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return 15, true
+	}
+
+	return 0, false
 }

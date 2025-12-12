@@ -87,15 +87,8 @@ func CheckError(err error) {
 				messageBuilder.WriteString("\n")
 			}
 
-			apiReasonErr := &APIError{}
 			messageBuilder.WriteString("Reason:\n  ")
-
-			if errors.As(exitErr.Reason, &apiReasonErr) {
-				messageBuilder.WriteString(fmt.Sprintf("API Message: %s\n", apiReasonErr.Message))
-				messageBuilder.WriteString(fmt.Sprintf("  API Details: %s\n", apiReasonErr.Details))
-			} else {
-				messageBuilder.WriteString(strings.ReplaceAll(exitErr.Reason.Error(), "\n", "\n  "))
-			}
+			messageBuilder.WriteString(strings.ReplaceAll(exitErr.Reason.Error(), "\n", "\n  "))
 
 			if !strings.HasSuffix(messageBuilder.String(), "\n") {
 				messageBuilder.WriteString("\n")
@@ -106,22 +99,6 @@ func CheckError(err error) {
 		os.Exit(exitErr.Code())
 	}
 
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		// How efficient
-		// If anyone asks we blame AI
-		CheckError(NewExitError().WithMessage(apiErr.Message).WithReason(apiErr))
-	}
-
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
-}
-
-type APIError struct {
-	Message string `json:"message"`
-	Details string `json:"details"`
-}
-
-func (a *APIError) Error() string {
-	return fmt.Sprintf("%s: %s", a.Message, a.Details)
 }

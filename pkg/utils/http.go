@@ -188,7 +188,12 @@ func (h *HTTPRequest) Do() error {
 		req.Header.Set(k, v)
 	}
 	if h.ResponseInto != nil && req.Header.Get("Accept") == "" {
-		req.Header.Set("Accept", "application/json")
+		switch h.ResponseInto.(type) {
+		case *[]byte, *string:
+			break
+		default:
+			req.Header.Set("Accept", "application/json")
+		}
 	}
 
 	if h.debug {
@@ -220,12 +225,6 @@ func (h *HTTPRequest) Do() error {
 
 				return h.Do()
 			}
-		}
-
-		var apiErr APIError
-		jsonErr := json.Unmarshal(b, &apiErr)
-		if jsonErr == nil && apiErr.Message != "" {
-			return &apiErr
 		}
 
 		msg := strings.TrimSpace(string(b))

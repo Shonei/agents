@@ -49,6 +49,7 @@ func Test_initDB_and_run_migrations(t *testing.T) {
 		{"search_zero_limit", testSearchZeroLimit},
 		{"list_stores", testListStores},
 		{"delete_store", testDeleteStore},
+		{"meta_search", testMetaSearch},
 	}
 
 	for _, tc := range testCases {
@@ -242,4 +243,55 @@ func testDeleteStore(t *testing.T, store *Storage) {
 	if !foundOther {
 		t.Errorf("expected other store %q to still exist", otherStore)
 	}
+}
+
+func testMetaSearch(t *testing.T, store *Storage) {
+	vec := make([]float32, SearchVectorSize)
+
+	storeName := "store-meta-search"
+	otherStore := "store-meta-search-other"
+
+	// Add doc to main store
+	d1 := &Document{
+		Vec:     vec,
+		Meta:    map[string]string{"type": "test", "id": "1"},
+		Content: "content 1",
+		Store:   storeName,
+	}
+	if err := store.AddDocument(d1); err != nil {
+		t.Fatalf("failed to add doc 1: %v", err)
+	}
+
+	// Add doc to other store with same meta
+	d2 := &Document{
+		Vec:     vec,
+		Meta:    map[string]string{"type": "test", "id": "2"},
+		Content: "content 2",
+		Store:   otherStore,
+	}
+	if err := store.AddDocument(d2); err != nil {
+		t.Fatalf("failed to add doc 2: %v", err)
+	}
+
+	// Test 1: Search without store filter (should find both)
+	results, err := store.MetaSearch(map[string]string{"type": "test"}, "")
+	if err != nil {
+		t.Fatalf("failed to search meta without store: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("expected 2 results without store filter, got %d", len(results))
+	}
+
+	// Test 2: Search with store filter (should find one)
+	results, err = store.MetaSearch(map[string]string{"type": "test"}, storeName)
+	if err != nil {
+		t.Fatalf("failed to search meta with store: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("expected 1 result with store filter, got %d", len(results))
+	}
+	if len(results) > 0 && results[0].Store != storeName {
+		t.Errorf("expected result from store %s, got %s", storeName, results[0].Store)
+	}
+}
 }

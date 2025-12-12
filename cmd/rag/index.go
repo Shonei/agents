@@ -64,7 +64,9 @@ func (r *indexCommand) RunIndex(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	utils.NewExitError().WithMessage("no path provided. Please use --dir or --file").Done()
+	// Default to current directory if no path provided
+	r.dirPath = "."
+	r.indexDir()
 }
 
 func (r *indexCommand) indexFile() {
@@ -149,7 +151,7 @@ func (r *indexCommand) indexDir() {
 
 		metaSearch, err := store.MetaSearch(map[string]string{
 			"path": file.Path,
-		})
+		}, storeName)
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to search meta").WithReason(err).Done()
 		}
@@ -199,7 +201,7 @@ func (r *indexCommand) indexDir() {
 }
 
 func (r *indexCommand) getStrategy() (func(string) ([]string, error), error) {
-	if r.strategy == "" {
+	if r.strategy == "" || r.strategy == "none" {
 		return func(s string) ([]string, error) {
 			return []string{s}, nil
 		}, nil

@@ -6,6 +6,8 @@
     "dev": "bun run server.ts"
   },
   "dependencies": {
+    "duckdb": "^1.4.3",
+    "js-yaml": "^4.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",

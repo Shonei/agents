@@ -66,15 +66,18 @@ func (m *MemoryTool) Call(input map[string]interface{}) (interface{}, error) {
 		return "", err
 	}
 
-	if in.Command == "store" {
+	switch in.Command {
+	case "store":
 		if in.Content == "" {
 			return "", sdk.NewAIError("content is required for store command")
 		}
+
 		return m.storeContent(in.Content)
-	} else if in.Command == "retrieve" {
+	case "retrieve":
 		if in.Query == "" {
 			return "", sdk.NewAIError("query is required for retrieve command")
 		}
+
 		return m.retrieveContent(in.Query)
 	}
 

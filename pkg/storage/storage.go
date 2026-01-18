@@ -48,3 +48,35 @@ func NewStorage(dbPath string) (*Storage, error) {
 func (s *Storage) Close() error {
 	return s.db.Close()
 }
+
+func (s *Storage) SaveSession(id string, hash string, prompt string) error {
+	_, err := s.goquDB.Insert("audit_sessions").Rows(
+		goqu.Record{
+			"id":            id,
+			"session_hash":  hash,
+			"system_prompt": prompt,
+		},
+	).Executor().Exec()
+
+	return err
+}
+
+func (s *Storage) SaveEvent(id string, sessionID string, eventType string, content string, payload []byte) error {
+	// If payload is empty or "null", we can store empty JSON object or null
+	p := string(payload)
+	if len(payload) == 0 {
+		p = "{}"
+	}
+
+	_, err := s.goquDB.Insert("audit_events").Rows(
+		goqu.Record{
+			"id":         id,
+			"session_id": sessionID,
+			"type":       eventType,
+			"content":    content,
+			"payload":    p,
+		},
+	).Executor().Exec()
+
+	return err
+}

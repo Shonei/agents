@@ -37,7 +37,11 @@ You need to provide API keys for the models you intend to use. You can set them 
 
 ### Audit Logging
 
-The CLI supports audit logging to help you understand and debug agent conversations. By default, this is disabled. To enable it, add the `audit` section to your `~/.agents/config.yaml`:
+The CLI supports audit logging to help you understand and debug agent conversations. By default, this is disabled. To enable it, add the `audit` section to your `~/.agents/config.yaml`.
+
+You can choose to store logs in a **file** or a **database**.
+
+#### File Logging (Default)
 
 ```yaml
 audit:
@@ -46,7 +50,20 @@ audit:
   path: /absolute/path/to/audit/dir
 ```
 
-**Note:** The directory specified in `path` must exist. Use an absolute path to ensure logs are always written to the same location regardless of your current working directory.
+#### Database Logging
+
+To log to the internal DuckDB database:
+
+```yaml
+audit:
+  enabled: true
+  type: database
+
+# Ensure you have the database path configured
+db_path: /absolute/path/to/agents.db
+```
+
+**Note:** The directory specified in `path` (for file logging) or `db_path` (for database logging) must exist. Use absolute paths.
 
 ### Audit Viewer
 

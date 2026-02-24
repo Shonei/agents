@@ -86,23 +86,23 @@ Create a new agent with a name, system prompt, and model. You can optionally att
 agents add \
   --name "coder" \
   --system-prompt "You are an expert Go developer." \
-  --model "claude-sonnet-4-5-20250929" \
+  --model "claude-sonnet-4-6-20260217" \
   --tools "bash,write_to_file,view_file"
 ```
 
 **Supported Models:**
-*   `claude-sonnet-4-5-20250929`
-*   `gemini-3-pro-preview`
+*   `claude-sonnet-4-6-20260217`
+*   `gemini-3.1-pro`
+*   `gemini-2.5-flash-image`
 
 **Available Tools:**
-*   `calculator`: Basic arithmetic.
-*   `bash`: Execute shell commands.
+*   `fetch_url`: Fetch content from a URL.
+*   `time`: Get the current date and time.
 *   `write_to_file`: Create or overwrite files.
 *   `view_file`: Read file contents.
 *   `list_dir`: List directory contents.
-*   `fetch_url`: Fetch content from a URL.
-*   `ask_user`: Ask the user a question.
-*   `time`: Get the current date and time.
+*   `bash`: Execute shell commands.
+*   `str_replace_editor`: Safely edits existing files using precise string replacement or insertion.
 *   `rag`: Search information in your local code base.
 *   `memory`: Long-term memory storage (store/retrieve).
 

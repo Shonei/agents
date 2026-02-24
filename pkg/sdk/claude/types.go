@@ -270,7 +270,7 @@ type Error struct {
 
 // Model constants
 const (
-	ModelClaude45 = "claude-sonnet-4-5-20250929"
+	ModelClaude46 = "claude-sonnet-4-6-20260217"
 )
 
 // NewTextMessage creates a simple text message

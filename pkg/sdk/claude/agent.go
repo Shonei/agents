@@ -14,7 +14,7 @@ const (
 	// DefaultAPIVersion is the default Anthropic API version
 	DefaultAPIVersion = "2023-06-01"
 	// DefaultModel is the default Claude model to use
-	DefaultModel = ModelClaude45
+	DefaultModel = ModelClaude46
 	// DefaultMaxTokens is the default maximum tokens for responses
 	DefaultMaxTokens = 10_000
 	// EnvAPIKey is the environment variable name for the Anthropic API key

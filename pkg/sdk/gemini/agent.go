@@ -11,7 +11,7 @@ import (
 
 const (
 	// DefaultModel is the default Gemini model to use
-	DefaultModel = ModelGemini3
+	DefaultModel = ModelGemini31
 	// DefaultMaxTokens is the default maximum tokens for responses
 	DefaultMaxTokens = 8192
 	// EnvAPIKey is the environment variable name for the Gemini API key

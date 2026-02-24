@@ -23,8 +23,8 @@ type add struct {
 }
 
 var modelNames = []string{
-	claude.ModelClaude45,
-	gemini.ModelGemini3,
+	claude.ModelClaude46,
+	gemini.ModelGemini31,
 	gemini.ModelGeminiImageGen,
 }
 

@@ -5,7 +5,7 @@ const (
 	RoleUser  = "user"
 	RoleModel = "model"
 
-	ModelGemini3           = "gemini-3-pro-preview"
+	ModelGemini31          = "gemini-3.1-pro"
 	ModelGeminiEmbedding   = "gemini-embedding-001"
 	ModelGeminiImageGen    = "gemini-2.5-flash-image"
 	ModelGemini25FlashLite = "gemini-2.5-flash-lite"

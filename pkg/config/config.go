@@ -50,11 +50,12 @@ type ToolCall struct {
 }
 
 type Config struct {
-	GeminiAPIKey string            `yaml:"gemini_api_key"`
-	Agents       map[string]Agent  `yaml:"agents"`
-	AuditConfig  audit.AuditConfig `yaml:"audit"`
-	DBPath       string            `yaml:"db_path"`
-	HideThinking bool              `yaml:"hide_thinking"`
+	GeminiAPIKey  string            `yaml:"gemini_api_key"`
+	Agents        map[string]Agent  `yaml:"agents"`
+	AuditConfig   audit.AuditConfig `yaml:"audit"`
+	DBPath        string            `yaml:"db_path"`
+	HideThinking  bool              `yaml:"hide_thinking"`
+	HideGrounding bool              `yaml:"hide_grounding"`
 }
 
 func NewConfigFactory() *ConfigFactory {
@@ -62,17 +63,19 @@ func NewConfigFactory() *ConfigFactory {
 }
 
 type ConfigFactory struct {
-	configPath   string
-	outputFormat string
-	hideThinking bool
-	db           *storage.Storage
-	Config       *Config
+	configPath    string
+	outputFormat  string
+	hideThinking  bool
+	hideGrounding bool
+	db            *storage.Storage
+	Config        *Config
 }
 
 func (c *ConfigFactory) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&c.configPath, "config", "c", defaultConfigPath, "config file (default is "+defaultConfigPath+")")
 	flags.StringVarP(&c.outputFormat, "output", "o", "table", "output format (yaml, json, table)")
 	flags.BoolVar(&c.hideThinking, "hide-thinking", false, "hide thinking blocks from output")
+	flags.BoolVar(&c.hideGrounding, "hide-grounding", false, "hide grounding summary (server-side tool sources) from output")
 }
 
 func (c *ConfigFactory) LoadConfig() {
@@ -90,6 +93,10 @@ func (c *ConfigFactory) LoadConfig() {
 
 	if c.hideThinking {
 		c.Config.HideThinking = true
+	}
+
+	if c.hideGrounding {
+		c.Config.HideGrounding = true
 	}
 
 	if c.Config.DBPath == "" {

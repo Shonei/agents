@@ -2,10 +2,18 @@ package sdk
 
 // CreateMessageRequest represents the request body for creating a message.
 type CreateMessageRequest struct {
-	Messages   []InputMessage `json:"messages"`
-	System     string         `json:"system,omitempty"`
-	ToolChoice *ToolChoice    `json:"tool_choice,omitempty"`
-	Tools      []Tool         `json:"tools,omitempty"`
+	Messages    []InputMessage `json:"messages"`
+	System      string         `json:"system,omitempty"`
+	ToolChoice  *ToolChoice    `json:"tool_choice,omitempty"`
+	Tools       []Tool         `json:"tools,omitempty"`
+	ServerTools []ServerTool   `json:"server_tools,omitempty"`
+}
+
+// ServerTool represents a tool that is executed by the provider rather than
+// by the local SDK loop. The Name field carries a provider-recognised kind
+// (see the ServerTool* constants below).
+type ServerTool struct {
+	Name string `json:"name"`
 }
 
 // InputMessage represents a message in the conversation.
@@ -68,6 +76,34 @@ type ResponseContentBlock struct {
 	Input map[string]interface{} `json:"input,omitempty"`
 
 	ThoughtSignature string `json:"thought_signature,omitempty"`
+
+	// Grounding is populated for ContentTypeGrounding blocks. It carries the
+	// provider-reported side-channel information about server-side tool
+	// executions (e.g. Gemini google_search / url_context).
+	Grounding *GroundingMetadata `json:"grounding,omitempty"`
+}
+
+// GroundingMetadata is a provider-agnostic summary of server-side tool
+// activity that accompanies an assistant response.
+type GroundingMetadata struct {
+	WebSearchQueries []string          `json:"web_search_queries,omitempty"`
+	Sources          []GroundingSource `json:"sources,omitempty"`
+	RetrievedURLs    []RetrievedURL    `json:"retrieved_urls,omitempty"`
+}
+
+// GroundingSource describes a single web result the provider used while
+// generating the answer.
+type GroundingSource struct {
+	Title   string `json:"title,omitempty"`
+	URI     string `json:"uri,omitempty"`
+	Snippet string `json:"snippet,omitempty"`
+}
+
+// RetrievedURL describes a URL the provider fetched via a URL-context style
+// tool, along with the retrieval status it reported.
+type RetrievedURL struct {
+	URL    string `json:"url"`
+	Status string `json:"status,omitempty"`
 }
 
 // Blob holds raw binary data (e.g. an image) along with its MIME type.
@@ -89,6 +125,14 @@ const (
 	ContentTypeToolUse    = "tool_use"
 	ContentTypeToolResult = "tool_result"
 	ContentTypeThinking   = "thinking"
+	ContentTypeGrounding  = "grounding"
+)
+
+// Server-side tool kind constants. These are the canonical names used both
+// in the YAML `tools:` list and on the wire inside CreateMessageRequest.ServerTools.
+const (
+	ServerToolGoogleSearch = "google_search"
+	ServerToolURLContext   = "url_context"
 )
 
 // Role constants.

@@ -23,10 +23,12 @@ import (
 type AI struct {
 	agent           Agent
 	tools           []AITool
+	serverTools     []ServerSideTool
 	systemPrompt    string
 	audit           *audit.Audit
 	lastInputTokens int
 	hideThinking    bool
+	hideGrounding   bool
 }
 
 type AITool interface {
@@ -35,6 +37,15 @@ type AITool interface {
 	Init(config map[string]string, configFactory *config.ConfigFactory)
 	InputSchema() map[string]interface{}
 	Call(input map[string]interface{}) (interface{}, error)
+}
+
+// ServerSideTool is a tool that is executed by the model provider rather than
+// by the local SDK loop. Implementations only need to declare their
+// YAML-facing name and the provider-recognised kind to send on the wire.
+type ServerSideTool interface {
+	Name() string
+	Kind() string
+	Init(config map[string]string, configFactory *config.ConfigFactory)
 }
 
 func NewAI(agent Agent, audit *audit.Audit) *AI {
@@ -48,8 +59,16 @@ func (a *AI) RegisterTool(tool AITool) {
 	a.tools = append(a.tools, tool)
 }
 
+func (a *AI) RegisterServerTool(tool ServerSideTool) {
+	a.serverTools = append(a.serverTools, tool)
+}
+
 func (a *AI) SetHideThinking(hide bool) {
 	a.hideThinking = hide
+}
+
+func (a *AI) SetHideGrounding(hide bool) {
+	a.hideGrounding = hide
 }
 
 func (a *AI) SetSystemPrompt(prompt string) {
@@ -79,6 +98,11 @@ func (a *AI) Chat(message string) (string, error) {
 		tools = append(tools, NewTool(tool.Name(), tool.Description(), tool.InputSchema()))
 	}
 
+	serverTools := []ServerTool{}
+	for _, st := range a.serverTools {
+		serverTools = append(serverTools, ServerTool{Name: st.Kind()})
+	}
+
 	// Initial message
 	history := []InputMessage{
 		NewTextMessage(RoleUser, message),
@@ -92,8 +116,9 @@ func (a *AI) Chat(message string) (string, error) {
 	for {
 		// Process current history
 		updatedHistory, _, err := a.chat(chatPayload{
-			tools:    tools,
-			messages: history,
+			tools:       tools,
+			serverTools: serverTools,
+			messages:    history,
 		})
 		if err != nil {
 			return "", err
@@ -124,9 +149,10 @@ func (a *AI) Chat(message string) (string, error) {
 }
 
 type chatPayload struct {
-	message  string
-	tools    []Tool
-	messages []InputMessage
+	message     string
+	tools       []Tool
+	serverTools []ServerTool
+	messages    []InputMessage
 }
 
 func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
@@ -150,10 +176,11 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 		}
 
 		request := CreateMessageRequest{
-			Messages:   messages,
-			Tools:      c.tools,
-			ToolChoice: NewAutoToolChoice(),
-			System:     a.systemPrompt,
+			Messages:    messages,
+			Tools:       c.tools,
+			ServerTools: c.serverTools,
+			ToolChoice:  NewAutoToolChoice(),
+			System:      a.systemPrompt,
 		}
 
 		response, err := a.agent.CreateMessage(request)
@@ -184,6 +211,16 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 						Input: block.Input,
 					},
 				})
+			case ContentTypeGrounding:
+				// Server-side tool activity is informational only: never
+				// added to the assistant content we replay to the model
+				// and never triggers a tool-result follow-up.
+				a.audit.LogEvent(audit.Event{
+					Type:             audit.GroundingEvent,
+					FunctionResponse: block.Grounding,
+				})
+
+				continue
 			}
 
 			assistantContent = append(assistantContent, ContentBlock{
@@ -269,6 +306,14 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 					fmt.Println(block.Text)
 				} else {
 					fmt.Print(out)
+				}
+
+				continue
+			}
+
+			if block.Type == ContentTypeGrounding && block.Grounding != nil {
+				if !a.hideGrounding {
+					printGroundingSummary(block.Grounding)
 				}
 
 				continue
@@ -366,6 +411,50 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 	}
 
 	return toolResults, nil
+}
+
+// printGroundingSummary renders a short, human-readable digest of what the
+// provider-side tools did to produce the answer.
+func printGroundingSummary(g *GroundingMetadata) {
+	if g == nil {
+		return
+	}
+
+	hasContent := len(g.WebSearchQueries) > 0 || len(g.Sources) > 0 || len(g.RetrievedURLs) > 0
+	if !hasContent {
+		return
+	}
+
+	header := color.New(color.FgMagenta, color.Bold)
+	body := color.New(color.FgMagenta)
+
+	header.Println("Grounding:")
+
+	if len(g.WebSearchQueries) > 0 {
+		body.Printf("  Search queries: %s\n", strings.Join(g.WebSearchQueries, ", "))
+	}
+
+	if len(g.Sources) > 0 {
+		body.Println("  Sources:")
+		for i, src := range g.Sources {
+			label := src.Title
+			if label == "" {
+				label = src.URI
+			}
+			body.Printf("    %d. %s (%s)\n", i+1, label, src.URI)
+		}
+	}
+
+	if len(g.RetrievedURLs) > 0 {
+		body.Println("  Retrieved URLs:")
+		for _, u := range g.RetrievedURLs {
+			if u.Status != "" {
+				body.Printf("    - %s [%s]\n", u.URL, u.Status)
+			} else {
+				body.Printf("    - %s\n", u.URL)
+			}
+		}
+	}
 }
 
 type functionCallAudit struct {

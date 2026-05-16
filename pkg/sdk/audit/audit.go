@@ -21,6 +21,7 @@ const (
 	FunctionCallEvent     = "function_call"
 	FunctionResponseEvent = "function_response"
 	CompactionEvent       = "compaction"
+	GroundingEvent        = "grounding"
 )
 
 type Logger interface {

@@ -104,6 +104,13 @@ agents add \
 *   `rag`: Search information in your local code base.
 *   `memory`: Long-term memory storage (store/retrieve).
 
+**Provider-executed (server-side) tools:**
+
+These tools run inside the model provider, so the SDK never invokes them locally. After each turn that used them, a short `Grounding:` summary is printed (search queries, sources, retrieved URLs) and the same data is appended to the audit log as a `grounding` event.
+
+*   `google_search`: Gemini's grounding-with-Google-Search. Model decides when to issue queries.
+*   `url_context`: Gemini's URL-context tool. Model fetches URLs it finds in the prompt and grounds the answer on their contents.
+
 #### System Prompt Templating
 System prompts support dynamic content via Go templates (e.g., adding current time or file listings).
 See [Templating System Prompts](docs/templating_system_prompts.md) for a full guide.

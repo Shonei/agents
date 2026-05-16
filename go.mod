@@ -1,6 +1,6 @@
 module github.com/Shonei/agents
 
-go 1.25.4
+go 1.26.3
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0

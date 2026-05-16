@@ -54,10 +54,21 @@ type FunctionResponse struct {
 	Response map[string]interface{} `json:"response"`
 }
 
-// Tool represents a tool definition
+// Tool represents a tool definition. Each tool entry can carry either local
+// function declarations or a marker for a provider-executed (server-side)
+// tool such as Google Search or URL Context.
 type Tool struct {
 	FunctionDeclarations []FunctionDeclaration `json:"functionDeclarations,omitempty"`
+	GoogleSearch         *GoogleSearch         `json:"googleSearch,omitempty"`
+	URLContext           *URLContext           `json:"urlContext,omitempty"`
 }
+
+// GoogleSearch is the marker payload for enabling Gemini's grounding-with-Google-Search
+// server-side tool. It is intentionally empty; Gemini just needs the key to be present.
+type GoogleSearch struct{}
+
+// URLContext is the marker payload for enabling Gemini's URL context server-side tool.
+type URLContext struct{}
 
 // FunctionDeclaration represents a function declaration
 type FunctionDeclaration struct {
@@ -68,7 +79,8 @@ type FunctionDeclaration struct {
 
 // ToolConfig represents tool configuration
 type ToolConfig struct {
-	FunctionCallingConfig *FunctionCallingConfig `json:"functionCallingConfig,omitempty"`
+	FunctionCallingConfig            *FunctionCallingConfig `json:"functionCallingConfig,omitempty"`
+	IncludeServerSideToolInvocations *bool                  `json:"includeServerSideToolInvocations,omitempty"`
 }
 
 // FunctionCallingConfig represents function calling configuration
@@ -104,11 +116,42 @@ type GenerateContentResponse struct {
 
 // Candidate represents a generation candidate
 type Candidate struct {
-	Content       Content        `json:"content"`
-	FinishReason  string         `json:"finishReason,omitempty"`
-	SafetyRatings []SafetyRating `json:"safetyRatings,omitempty"`
-	TokenCount    int            `json:"tokenCount,omitempty"`
-	Index         int            `json:"index,omitempty"`
+	Content           Content            `json:"content"`
+	FinishReason      string             `json:"finishReason,omitempty"`
+	SafetyRatings     []SafetyRating     `json:"safetyRatings,omitempty"`
+	TokenCount        int                `json:"tokenCount,omitempty"`
+	Index             int                `json:"index,omitempty"`
+	GroundingMetadata *GroundingMetadata `json:"groundingMetadata,omitempty"`
+}
+
+// GroundingMetadata is Gemini's side-channel about server-side tool activity
+// (google_search / url_context) that produced the response.
+type GroundingMetadata struct {
+	WebSearchQueries   []string            `json:"webSearchQueries,omitempty"`
+	GroundingChunks    []GroundingChunk    `json:"groundingChunks,omitempty"`
+	URLContextMetadata *URLContextMetadata `json:"urlContextMetadata,omitempty"`
+}
+
+// GroundingChunk is a single source the model leaned on while producing the answer.
+type GroundingChunk struct {
+	Web *GroundingChunkWeb `json:"web,omitempty"`
+}
+
+// GroundingChunkWeb describes a web result chunk.
+type GroundingChunkWeb struct {
+	URI   string `json:"uri,omitempty"`
+	Title string `json:"title,omitempty"`
+}
+
+// URLContextMetadata describes which URLs the url_context tool actually retrieved.
+type URLContextMetadata struct {
+	URLMetadata []URLMetadataEntry `json:"urlMetadata,omitempty"`
+}
+
+// URLMetadataEntry is a single URL retrieval record reported by url_context.
+type URLMetadataEntry struct {
+	RetrievedURL       string `json:"retrievedUrl,omitempty"`
+	URLRetrievalStatus string `json:"urlRetrievalStatus,omitempty"`
 }
 
 // SafetyRating represents a safety rating

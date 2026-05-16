@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -23,6 +24,7 @@ type Agent struct {
 	apiKey             string
 	model              string
 	maxTokens          int
+	maxContextTokens   int
 	temperature        float64
 	embeddingDim       int
 	responseModalities []string
@@ -59,6 +61,14 @@ func WithMaxTokens(maxTokens int) AgentOption {
 	}
 }
 
+// WithMaxContextTokens sets the input-context token budget at which the chat
+// loop will trigger conversation compaction. A value of 0 disables compaction.
+func WithMaxContextTokens(maxContextTokens int) AgentOption {
+	return func(a *Agent) {
+		a.maxContextTokens = maxContextTokens
+	}
+}
+
 func WithTemperature(temperature float64) AgentOption {
 	return func(a *Agent) {
 		a.temperature = temperature
@@ -85,6 +95,12 @@ func (a *Agent) Model() string {
 // MaxTokens returns the max tokens configured for the agent
 func (a *Agent) MaxTokens() int {
 	return a.maxTokens
+}
+
+// MaxContextTokens returns the input-context token budget configured for the
+// agent. A value of 0 disables conversation compaction.
+func (a *Agent) MaxContextTokens() int {
+	return a.maxContextTokens
 }
 
 // NewAgent creates a new Agent with the given options
@@ -236,7 +252,12 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 
 					// If content is string, try to unmarshal it
 					if strContent, ok := block.Content.(string); ok {
-						responseMap = map[string]interface{}{"result": strContent}
+						var parsedMap map[string]interface{}
+						if err := json.Unmarshal([]byte(strContent), &parsedMap); err == nil {
+							responseMap = parsedMap
+						} else {
+							responseMap = map[string]interface{}{"result": strContent}
+						}
 					} else if mapContent, ok := block.Content.(map[string]interface{}); ok {
 						responseMap = mapContent
 					} else {

@@ -21,10 +21,12 @@ import (
 // You can register tools and the AI will use them when appropriate
 // When chatting with the AI, it will use the tools you registered
 type AI struct {
-	agent        Agent
-	tools        []AITool
-	systemPrompt string
-	audit        *audit.Audit
+	agent           Agent
+	tools           []AITool
+	systemPrompt    string
+	audit           *audit.Audit
+	lastInputTokens int
+	hideThinking    bool
 }
 
 type AITool interface {
@@ -44,6 +46,10 @@ func NewAI(agent Agent, audit *audit.Audit) *AI {
 
 func (a *AI) RegisterTool(tool AITool) {
 	a.tools = append(a.tools, tool)
+}
+
+func (a *AI) SetHideThinking(hide bool) {
+	a.hideThinking = hide
 }
 
 func (a *AI) SetSystemPrompt(prompt string) {
@@ -134,6 +140,15 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 
 	// Loop until we get a response without tool calls
 	for {
+		compacted, err := a.maybeCompact(&messages)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if compacted {
+			a.lastInputTokens = 0
+		}
+
 		request := CreateMessageRequest{
 			Messages:   messages,
 			Tools:      c.tools,
@@ -146,7 +161,8 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 			return nil, nil, err
 		}
 
-		// log usage
+		a.lastInputTokens = response.Usage.InputTokens
+
 		fmt.Printf("Usage: %d input tokens, %d output tokens\n", response.Usage.InputTokens, response.Usage.OutputTokens)
 
 		hasToolCalls := false
@@ -195,14 +211,16 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 		// Print non-tool-use blocks
 		for _, block := range response.Content {
 			if block.Type == ContentTypeThinking {
-				color.New(color.FgHiBlue, color.Italic).Print("Thinking: ")
-				// Render markdown
-				out, err := glamour.Render(block.Text, "dark")
-				if err != nil {
-					// Fallback to plain text if rendering fails
-					fmt.Println(block.Text)
-				} else {
-					fmt.Print(out)
+				if !a.hideThinking {
+					color.New(color.FgHiBlue, color.Italic).Print("Thinking: ")
+					// Render markdown
+					out, err := glamour.Render(block.Text, "dark")
+					if err != nil {
+						// Fallback to plain text if rendering fails
+						fmt.Println(block.Text)
+					} else {
+						fmt.Print(out)
+					}
 				}
 
 				continue
@@ -262,6 +280,7 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 			return messages, response, nil
 		}
 
+		var allToolResults []ContentBlock
 		for _, block := range response.Content {
 			if block.Type != ContentTypeToolUse {
 				continue
@@ -272,10 +291,14 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 				return nil, nil, err
 			}
 
+			allToolResults = append(allToolResults, toolResults...)
+		}
+
+		if len(allToolResults) > 0 {
 			// Add tool results to messages
 			messages = append(messages, InputMessage{
 				Role:    RoleUser,
-				Content: toolResults,
+				Content: allToolResults,
 			})
 		}
 	}

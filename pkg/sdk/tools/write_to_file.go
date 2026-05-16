@@ -87,9 +87,9 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 	}
 
 	if toolInput.Force {
-		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create the following file:")
+		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create or overwrite the following file:")
 	} else {
-		color.New(color.FgYellow, color.Bold).Println("\nYuou are about to create or overwrite the following file:")
+		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create the following file:")
 	}
 
 	color.Cyan("  %s", toolInput.FilePath)

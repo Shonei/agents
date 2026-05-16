@@ -20,6 +20,7 @@ const (
 	AssistantMessageEvent = "assistant_message"
 	FunctionCallEvent     = "function_call"
 	FunctionResponseEvent = "function_response"
+	CompactionEvent       = "compaction"
 )
 
 type Logger interface {
@@ -182,12 +183,12 @@ func (d *dbLogger) LogEvent(event Event) {
 	b, _ := json.Marshal(payload)
 
 	id := utils.RandomString(32)
-	d.store.SaveEvent(id, d.sessionID, event.Type, event.Content, b)
+	_ = d.store.SaveEvent(id, d.sessionID, event.Type, event.Content, b)
 }
 
 func (d *dbLogger) LogUser(user User) {
 	salt := time.Now().UnixNano()
 	d.sessionID = fmt.Sprintf("%s_%d", user.ID, salt)
 
-	d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt)
+	_ = d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt)
 }

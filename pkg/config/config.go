@@ -37,6 +37,7 @@ type Agent struct {
 
 	// we will deal with this later
 	MaxTokens          *int       `yaml:"max_tokens"`
+	MaxContextTokens   *int       `yaml:"max_context_tokens"`
 	Temperature        *float64   `yaml:"temperature"`
 	ResponseModalities []string   `yaml:"response_modalities"`
 	ThinkingEnabled    bool       `yaml:"thinking_enabled"`
@@ -53,6 +54,7 @@ type Config struct {
 	Agents       map[string]Agent  `yaml:"agents"`
 	AuditConfig  audit.AuditConfig `yaml:"audit"`
 	DBPath       string            `yaml:"db_path"`
+	HideThinking bool              `yaml:"hide_thinking"`
 }
 
 func NewConfigFactory() *ConfigFactory {
@@ -62,6 +64,7 @@ func NewConfigFactory() *ConfigFactory {
 type ConfigFactory struct {
 	configPath   string
 	outputFormat string
+	hideThinking bool
 	db           *storage.Storage
 	Config       *Config
 }
@@ -69,6 +72,7 @@ type ConfigFactory struct {
 func (c *ConfigFactory) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&c.configPath, "config", "c", defaultConfigPath, "config file (default is "+defaultConfigPath+")")
 	flags.StringVarP(&c.outputFormat, "output", "o", "table", "output format (yaml, json, table)")
+	flags.BoolVar(&c.hideThinking, "hide-thinking", false, "hide thinking blocks from output")
 }
 
 func (c *ConfigFactory) LoadConfig() {
@@ -82,6 +86,10 @@ func (c *ConfigFactory) LoadConfig() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, fmt.Errorf("failed to load config: %v", err))
 		os.Exit(1)
+	}
+
+	if c.hideThinking {
+		c.Config.HideThinking = true
 	}
 
 	if c.Config.DBPath == "" {

@@ -5,7 +5,7 @@ import {load} from "js-yaml";
 import {Database} from "duckdb";
 
 const PORT = 3000;
-const DEFAULT_CONFIG_PATH = join(homedir(), ".agents", "config.yaml");
+const DEFAULT_CONFIG_PATH = join(homedir(), "agents", "config.yaml");
 
 // Config interface
 interface Config {

@@ -91,6 +91,10 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 		opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
 	}
 
+	if agent.MaxContextTokens != nil {
+		opts = append(opts, gemini.WithMaxContextTokens(*agent.MaxContextTokens))
+	}
+
 	if agent.Temperature != nil {
 		opts = append(opts, gemini.WithTemperature(*agent.Temperature))
 	}
@@ -100,6 +104,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	}
 
 	aiSDK := sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(auditLogger))
+	aiSDK.SetHideThinking(a.configFactory.Config.HideThinking)
 
 	// Register tools
 	for _, toolName := range agent.Tools {

@@ -198,11 +198,13 @@ func (h *HTTPRequest) Do() error {
 
 	if h.debug {
 		reqBytes, _ := httputil.DumpRequest(req, true)
+		//nolint:gosec // This is a debug output
 		fmt.Fprintln(os.Stderr, string(reqBytes))
 	}
 
 	h.attempt++
 
+	//nolint:gosec // The URL is controlled by the caller
 	resp, err := h.client.Do(req)
 	if err != nil {
 		return err
@@ -211,6 +213,7 @@ func (h *HTTPRequest) Do() error {
 
 	if h.debug {
 		respBytes, _ := httputil.DumpResponse(resp, true)
+		//nolint:gosec // This is a debug output
 		fmt.Fprintln(os.Stderr, string(respBytes))
 	}
 

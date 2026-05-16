@@ -95,7 +95,7 @@ func (t *GithubPRDetailsTool) Call(input map[string]interface{}) (interface{}, e
 		result["head_branch"] = pr.Head.GetRef()
 	}
 	if pr.CreatedAt != nil {
-		result["created_at"] = pr.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		result["created_at"] = pr.CreatedAt.Format("2006-01-02T15:04:05Z07:00")
 	}
 
 	result["merge"] = buildMergeStatus(pr)

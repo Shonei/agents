@@ -103,7 +103,7 @@ func (t *GithubPRCommentsTool) Call(input map[string]interface{}) (interface{}, 
 			comment["author"] = c.User.GetLogin()
 		}
 		if c.CreatedAt != nil {
-			comment["created_at"] = c.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+			comment["created_at"] = c.CreatedAt.Format("2006-01-02T15:04:05Z07:00")
 		}
 		results = append(results, comment)
 	}
@@ -121,7 +121,7 @@ func (t *GithubPRCommentsTool) Call(input map[string]interface{}) (interface{}, 
 			comment["author"] = c.User.GetLogin()
 		}
 		if c.CreatedAt != nil {
-			comment["created_at"] = c.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+			comment["created_at"] = c.CreatedAt.Format("2006-01-02T15:04:05Z07:00")
 		}
 		results = append(results, comment)
 	}
@@ -142,7 +142,7 @@ func (t *GithubPRCommentsTool) Call(input map[string]interface{}) (interface{}, 
 			comment["author"] = r.User.GetLogin()
 		}
 		if r.SubmittedAt != nil {
-			comment["created_at"] = r.SubmittedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+			comment["created_at"] = r.SubmittedAt.Format("2006-01-02T15:04:05Z07:00")
 		}
 		results = append(results, comment)
 	}

@@ -17,6 +17,7 @@ var availableTools = []sdk.AITool{
 	&GithubPRCommentsTool{},
 	&GitCheckoutPRTool{},
 	&GithubPRReviewTool{},
+	&TodoTool{},
 }
 
 // availableServerTools holds tools executed by the model provider itself

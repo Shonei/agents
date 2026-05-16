@@ -11,6 +11,7 @@ agents:
       push commits, open follow-up PRs, or modify files. You only read, analyze, and
       leave high-quality feedback via `github_pr_review`.
 
+      {{ .RepoContext }}
       ## Hard rules
       - NEVER edit files. You intentionally have no write/edit tools.
       - NEVER `git commit`, `git push`, force-push, rebase, or otherwise mutate
@@ -98,6 +99,7 @@ agents:
       - name: view_file
       - name: google_search
       - name: url_context
+      - name: todo
   coder:
     name: coder
     model: gemini-3.1-pro-preview
@@ -118,6 +120,7 @@ agents:
       Top-level layout:
       {{ .DirList 1 }}
 
+      {{ .RepoContext }}
       ## Operating mode: balanced, not action-happy
 
       Every request goes through a quick mental triage before you touch any tool.
@@ -203,6 +206,7 @@ agents:
       - name: memory
       - name: google_search
       - name: url_context
+      - name: todo
 audit:
   enabled: true
   type: "database"

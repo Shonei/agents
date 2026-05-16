@@ -54,6 +54,25 @@ func (s *SystemPromptBuilder) DirList(depth int) string {
 	return sb.String()
 }
 
+func (s *SystemPromptBuilder) RepoContext() string {
+	files := []string{
+		"AGENTS.md",
+		".cursorrules",
+		"CURSOR.md",
+		"COPILOT.md",
+		".github/copilot-instructions.md",
+	}
+
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err == nil {
+			return fmt.Sprintf("<repository_instructions source=\"%s\">\n%s\n</repository_instructions>", file, string(content))
+		}
+	}
+
+	return ""
+}
+
 // GetAvailableFunctions returns an array of methods attached to this struct
 // This is only used for the human documentation when building prompts
 // and using reflections is fun :shrug:

@@ -93,18 +93,21 @@ func (t *GitCheckoutPRTool) Call(input map[string]interface{}) (interface{}, err
 	cloneCmd := exec.Command("git", "clone", sshURL, tmpDir)
 	if output, err := cloneCmd.CombinedOutput(); err != nil {
 		_ = os.RemoveAll(tmpDir)
+
 		return nil, sdk.NewAIError(fmt.Sprintf("failed to clone repo over SSH (%s): %s, error: %v", sshURL, string(output), err)).WithReason(err)
 	}
 
 	fetchCmd := exec.Command("git", "-C", tmpDir, "fetch", "origin", fmt.Sprintf("pull/%d/head:%s", in.PRNumber, branchName))
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
 		_ = os.RemoveAll(tmpDir)
+
 		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch PR branch: %s, error: %v", string(output), err)).WithReason(err)
 	}
 
 	checkoutCmd := exec.Command("git", "-C", tmpDir, "checkout", branchName)
 	if output, err := checkoutCmd.CombinedOutput(); err != nil {
 		_ = os.RemoveAll(tmpDir)
+
 		return nil, sdk.NewAIError(fmt.Sprintf("failed to checkout PR branch: %s, error: %v", string(output), err)).WithReason(err)
 	}
 

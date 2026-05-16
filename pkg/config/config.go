@@ -51,6 +51,7 @@ type ToolCall struct {
 
 type Config struct {
 	GeminiAPIKey  string            `yaml:"gemini_api_key"`
+	GitHubToken   string            `yaml:"github_token"`
 	Agents        map[string]Agent  `yaml:"agents"`
 	AuditConfig   audit.AuditConfig `yaml:"audit"`
 	DBPath        string            `yaml:"db_path"`
@@ -137,6 +138,14 @@ func (c *ConfigFactory) GetGeminiAPIKey() string {
 	}
 
 	return c.Config.GeminiAPIKey
+}
+
+func (c *ConfigFactory) GetGitHubToken() string {
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		return token
+	}
+
+	return c.Config.GitHubToken
 }
 
 func (c *ConfigFactory) SaveConfig() {

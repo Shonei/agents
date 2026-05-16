@@ -74,7 +74,7 @@ func (t *GithubPRDiffTool) Call(input map[string]interface{}) (interface{}, erro
 
 	diff, _, err := t.client.PullRequests.GetRaw(context.Background(), in.Owner, in.Repo, in.PRNumber, github.RawOptions{Type: github.Diff})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch PR diff: %w", err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch PR diff: %v", err)).WithReason(err)
 	}
 
 	return diff, nil

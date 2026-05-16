@@ -77,13 +77,13 @@ func (t *GithubPRCommentsTool) Call(input map[string]interface{}) (interface{}, 
 	// Fetch issue comments (general PR comments)
 	issueComments, _, err := t.client.Issues.ListComments(ctx, in.Owner, in.Repo, in.PRNumber, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch issue comments: %w", err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch issue comments: %v", err)).WithReason(err)
 	}
 
 	// Fetch review comments (inline code comments)
 	reviewComments, _, err := t.client.PullRequests.ListComments(ctx, in.Owner, in.Repo, in.PRNumber, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch review comments: %w", err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch review comments: %v", err)).WithReason(err)
 	}
 
 	var results []map[string]interface{}

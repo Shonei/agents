@@ -74,7 +74,7 @@ func (t *GithubPRDetailsTool) Call(input map[string]interface{}) (interface{}, e
 
 	pr, _, err := t.client.PullRequests.Get(context.Background(), in.Owner, in.Repo, in.PRNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch PR details: %w", err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch PR details: %v", err)).WithReason(err)
 	}
 
 	result := map[string]interface{}{

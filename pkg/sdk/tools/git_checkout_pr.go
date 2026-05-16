@@ -53,13 +53,13 @@ func (t *GitCheckoutPRTool) Call(input map[string]interface{}) (interface{}, err
 	// Fetch the PR branch
 	fetchCmd := exec.Command("git", "fetch", "origin", fmt.Sprintf("pull/%d/head:%s", in.PRNumber, branchName))
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("failed to fetch PR branch: %s, error: %w", string(output), err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch PR branch: %s, error: %v", string(output), err)).WithReason(err)
 	}
 
 	// Checkout the PR branch
 	checkoutCmd := exec.Command("git", "checkout", branchName)
 	if output, err := checkoutCmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("failed to checkout PR branch: %s, error: %w", string(output), err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to checkout PR branch: %s, error: %v", string(output), err)).WithReason(err)
 	}
 
 	return map[string]interface{}{

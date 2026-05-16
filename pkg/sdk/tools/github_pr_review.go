@@ -131,7 +131,7 @@ func (t *GithubPRReviewTool) Call(input map[string]interface{}) (interface{}, er
 
 	review, _, err := t.client.PullRequests.CreateReview(context.Background(), in.Owner, in.Repo, in.PRNumber, reviewRequest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create PR review: %w", err)
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to create PR review: %v", err)).WithReason(err)
 	}
 
 	return map[string]interface{}{

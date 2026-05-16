@@ -9,7 +9,6 @@ import (
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/sdk/audit"
-	"github.com/Shonei/agents/pkg/sdk/claude"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
@@ -73,56 +72,34 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 
 	auditLogger := a.createLogger()
 
-	var aiSDK *sdk.AI
-	switch {
-	case strings.Contains(strings.ToLower(agent.Model), "claude"):
-		opts := []claude.AgentOption{
-			claude.WithAPIKey(a.configFactory.GetAPIKey(agent)),
-			claude.WithModel(agent.Model),
-		}
-
-		if agent.ThinkingEnabled {
-			opts = append(opts, claude.WithThinking())
-		}
-
-		if agent.MaxTokens != nil {
-			opts = append(opts, claude.WithMaxTokens(*agent.MaxTokens))
-		}
-
-		if agent.Temperature != nil {
-			opts = append(opts, claude.WithTemperature(*agent.Temperature))
-		}
-
-		aiSDK = sdk.NewAI(claude.NewAgent(opts...), audit.NewAudit(auditLogger))
-
-	case strings.Contains(strings.ToLower(agent.Model), "gemini"):
-		opts := []gemini.AgentOption{
-			gemini.WithAPIKey(a.configFactory.GetAPIKey(agent)),
-			gemini.WithModel(agent.Model),
-		}
-
-		if agent.ThinkingEnabled {
-			opts = append(opts, gemini.WithThinking())
-		}
-
-		if agent.MaxTokens != nil {
-			opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
-		}
-
-		if agent.Temperature != nil {
-			opts = append(opts, gemini.WithTemperature(*agent.Temperature))
-		}
-
-		if agent.ResponseModalities != nil {
-			opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
-		}
-
-		aiSDK = sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(auditLogger))
-	default:
+	if !strings.Contains(strings.ToLower(agent.Model), "gemini") {
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
 
 		return
 	}
+
+	opts := []gemini.AgentOption{
+		gemini.WithAPIKey(a.configFactory.GetGeminiAPIKey()),
+		gemini.WithModel(agent.Model),
+	}
+
+	if agent.ThinkingEnabled {
+		opts = append(opts, gemini.WithThinking())
+	}
+
+	if agent.MaxTokens != nil {
+		opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
+	}
+
+	if agent.Temperature != nil {
+		opts = append(opts, gemini.WithTemperature(*agent.Temperature))
+	}
+
+	if agent.ResponseModalities != nil {
+		opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
+	}
+
+	aiSDK := sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(auditLogger))
 
 	// Register tools
 	for _, toolName := range agent.Tools {
@@ -159,7 +136,6 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 		aiSDK.SetSystemPrompt(rendered)
 	}
 
-	// Send the message to Claude
 	response, err := aiSDK.Chat(a.prompt)
 	if err != nil {
 		utils.NewExitError().WithMessage("failed to engage agent").WithReason(err).Done()

@@ -11,7 +11,7 @@ import (
 
 const (
 	// DefaultModel is the default Gemini model to use
-	DefaultModel = ModelGemini31
+	DefaultModel = ModelGemini31ProPreview
 	// DefaultMaxTokens is the default maximum tokens for responses
 	DefaultMaxTokens = 8192
 	// EnvAPIKey is the environment variable name for the Gemini API key
@@ -189,23 +189,9 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 		},
 	}
 
-	// Convert System Prompt
-	if req.System != nil {
-		var systemText string
-		switch v := req.System.(type) {
-		case string:
-			systemText = v
-		case []sdk.ContentBlock:
-			for _, block := range v {
-				if block.Type == sdk.ContentTypeText {
-					systemText += block.Text + "\n"
-				}
-			}
-		}
-		if systemText != "" {
-			geminiReq.SystemInstruction = &Content{
-				Parts: []Part{{Text: systemText}},
-			}
+	if req.System != "" {
+		geminiReq.SystemInstruction = &Content{
+			Parts: []Part{{Text: req.System}},
 		}
 	}
 

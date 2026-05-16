@@ -5,10 +5,10 @@ const (
 	RoleUser  = "user"
 	RoleModel = "model"
 
-	ModelGemini31          = "gemini-3.1-pro"
-	ModelGeminiEmbedding   = "gemini-embedding-001"
-	ModelGeminiImageGen    = "gemini-2.5-flash-image"
-	ModelGemini25FlashLite = "gemini-2.5-flash-lite"
+	ModelGemini31ProPreview        = "gemini-3.1-pro-preview"
+	ModelGemini31FlashLite         = "gemini-3.1-flash-lite"
+	ModelGemini31FlashImagePreview = "gemini-3.1-flash-image-preview"
+	ModelGeminiEmbedding           = "gemini-embedding-001"
 )
 
 // GenerateContentRequest represents the request body for generating content

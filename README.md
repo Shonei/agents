@@ -20,18 +20,16 @@ By default, the configuration is stored in `~/.agents/config.yaml`. The CLI will
 
 ### API Keys
 
-You need to provide API keys for the models you intend to use. You can set them in two ways:
+You need to provide a Gemini API key. You can set it in two ways:
 
-1. **Environment Variables** (Recommended):
+1. **Environment Variable** (Recommended):
    ```bash
-   export ANTHROPIC_API_KEY="your-claude-key"
    export GEMINI_API_KEY="your-gemini-key"
    ```
 
 2. **Config File**:
-   Add them directly to `~/.agents/config.yaml`:
+   Add it directly to `~/.agents/config.yaml`:
    ```yaml
-   claude_api_key: "your-claude-key"
    gemini_api_key: "your-gemini-key"
    ```
 
@@ -86,14 +84,14 @@ Create a new agent with a name, system prompt, and model. You can optionally att
 agents add \
   --name "coder" \
   --system-prompt "You are an expert Go developer." \
-  --model "claude-sonnet-4-6-20260217" \
+  --model "gemini-3.1-pro-preview" \
   --tools "bash,write_to_file,view_file"
 ```
 
 **Supported Models:**
-*   `claude-sonnet-4-6-20260217`
-*   `gemini-3.1-pro`
-*   `gemini-2.5-flash-image`
+*   `gemini-3.1-pro-preview`
+*   `gemini-3.1-flash-lite`
+*   `gemini-3.1-flash-image-preview`
 
 **Available Tools:**
 *   `fetch_url`: Fetch content from a URL.

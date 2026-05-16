@@ -55,7 +55,7 @@ When adding an agent via the CLI, you can use these templates directly in the sy
 agents add \
   --name "context-aware" \
   --system-prompt "You are an AI assistant. Current time: {{ .Now }}. Working in: {{ .Cwd }}." \
-  --model "claude-sonnet-4-5-20250929"
+  --model "gemini-3.1-pro-preview"
 ```
 
 Or when editing the `config.yaml` manually:
@@ -64,7 +64,7 @@ Or when editing the `config.yaml` manually:
 agents:
   context-aware:
     name: context-aware
-    model: claude-sonnet-4-5-20250929
+    model: gemini-3.1-pro-preview
     system_prompt: |
       You are an expert developer.
       

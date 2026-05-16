@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -16,14 +15,14 @@ import (
 )
 
 var (
-	defaultConfigPath  = "~/.agents/config.yaml"
+	defaultConfigPath  = "~/agents/config.yaml"
 	configEnvOverwrite = "AGENTS_CONFIG"
 )
 
 func init() {
 	homeDir, _ := os.UserHomeDir()
 	if homeDir != "" {
-		defaultConfigPath = homeDir + "/.agents/config.yaml"
+		defaultConfigPath = homeDir + "/agents/config.yaml"
 	}
 
 	if envPath := os.Getenv(configEnvOverwrite); envPath != "" {
@@ -50,7 +49,6 @@ type ToolCall struct {
 }
 
 type Config struct {
-	ClaudeAPIKey string            `yaml:"claude_api_key"`
 	GeminiAPIKey string            `yaml:"gemini_api_key"`
 	Agents       map[string]Agent  `yaml:"agents"`
 	AuditConfig  audit.AuditConfig `yaml:"audit"`
@@ -116,22 +114,6 @@ func (c *ConfigFactory) GetAgent(name string) Agent {
 	}
 
 	return agent
-}
-
-func (c *ConfigFactory) GetAPIKey(agent Agent) string {
-	if strings.Contains(strings.ToLower(agent.Model), "claude") {
-		if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
-			return key
-		}
-
-		return c.Config.ClaudeAPIKey
-	}
-
-	if strings.Contains(strings.ToLower(agent.Model), "gemini") {
-		return c.GetGeminiAPIKey()
-	}
-
-	return ""
 }
 
 func (c *ConfigFactory) GetGeminiAPIKey() string {

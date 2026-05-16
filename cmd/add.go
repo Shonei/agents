@@ -8,7 +8,6 @@ import (
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
-	"github.com/Shonei/agents/pkg/sdk/claude"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
 	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
@@ -23,9 +22,9 @@ type add struct {
 }
 
 var modelNames = []string{
-	claude.ModelClaude46,
-	gemini.ModelGemini31,
-	gemini.ModelGeminiImageGen,
+	gemini.ModelGemini31ProPreview,
+	gemini.ModelGemini31FlashLite,
+	gemini.ModelGemini31FlashImagePreview,
 }
 
 func NewAdd(c *config.ConfigFactory) *cobra.Command {

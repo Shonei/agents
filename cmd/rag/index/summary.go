@@ -16,7 +16,7 @@ func NewSummaryStrategy(c *config.ConfigFactory) (*SummaryStrategy, error) {
 	geminiKey := c.GetGeminiAPIKey()
 	g := gemini.NewAgent(
 		gemini.WithAPIKey(geminiKey),
-		gemini.WithModel(gemini.ModelGemini25FlashLite),
+		gemini.WithModel(gemini.ModelGemini31FlashLite),
 	)
 
 	return &SummaryStrategy{

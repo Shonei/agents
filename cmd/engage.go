@@ -91,6 +91,10 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 		opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
 	}
 
+	if agent.MaxContextTokens != nil {
+		opts = append(opts, gemini.WithMaxContextTokens(*agent.MaxContextTokens))
+	}
+
 	if agent.Temperature != nil {
 		opts = append(opts, gemini.WithTemperature(*agent.Temperature))
 	}
@@ -100,30 +104,31 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	}
 
 	aiSDK := sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(auditLogger))
+	aiSDK.SetHideThinking(a.configFactory.Config.HideThinking)
+	aiSDK.SetHideGrounding(a.configFactory.Config.HideGrounding)
 
-	// Register tools
+	// Register tools. A YAML tool entry may resolve to either a local AITool
+	// or a provider-executed ServerSideTool (e.g. google_search, url_context).
 	for _, toolName := range agent.Tools {
-		found := false
-
-		for _, tool := range tools.Tools() {
-			if tool.Name() == toolName.Name {
-				found = true
-
-				if toolName.Config == nil {
-					toolName.Config = make(map[string]string)
-				}
-
-				tool.Init(toolName.Config, a.configFactory)
-				aiSDK.RegisterTool(tool)
-
-				break
-			}
+		if toolName.Config == nil {
+			toolName.Config = make(map[string]string)
 		}
 
-		if !found {
-			// if we can't find a tool error
-			utils.NewExitError().WithMessage(fmt.Sprintf("unsupported tool: %s", toolName.Name)).Done()
+		if tool := findAITool(toolName.Name); tool != nil {
+			tool.Init(toolName.Config, a.configFactory)
+			aiSDK.RegisterTool(tool)
+
+			continue
 		}
+
+		if st := findServerTool(toolName.Name); st != nil {
+			st.Init(toolName.Config, a.configFactory)
+			aiSDK.RegisterServerTool(st)
+
+			continue
+		}
+
+		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported tool: %s", toolName.Name)).Done()
 	}
 
 	// Add system prompt if configured
@@ -143,4 +148,24 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 
 	// Print the response
 	fmt.Println(response)
+}
+
+func findAITool(name string) sdk.AITool {
+	for _, tool := range tools.Tools() {
+		if tool.Name() == name {
+			return tool
+		}
+	}
+
+	return nil
+}
+
+func findServerTool(name string) sdk.ServerSideTool {
+	for _, st := range tools.ServerTools() {
+		if st.Name() == name {
+			return st
+		}
+	}
+
+	return nil
 }

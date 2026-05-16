@@ -37,6 +37,7 @@ type Agent struct {
 
 	// we will deal with this later
 	MaxTokens          *int       `yaml:"max_tokens"`
+	MaxContextTokens   *int       `yaml:"max_context_tokens"`
 	Temperature        *float64   `yaml:"temperature"`
 	ResponseModalities []string   `yaml:"response_modalities"`
 	ThinkingEnabled    bool       `yaml:"thinking_enabled"`
@@ -49,10 +50,13 @@ type ToolCall struct {
 }
 
 type Config struct {
-	GeminiAPIKey string            `yaml:"gemini_api_key"`
-	Agents       map[string]Agent  `yaml:"agents"`
-	AuditConfig  audit.AuditConfig `yaml:"audit"`
-	DBPath       string            `yaml:"db_path"`
+	GeminiAPIKey  string            `yaml:"gemini_api_key"`
+	GitHubToken   string            `yaml:"github_token"`
+	Agents        map[string]Agent  `yaml:"agents"`
+	AuditConfig   audit.AuditConfig `yaml:"audit"`
+	DBPath        string            `yaml:"db_path"`
+	HideThinking  bool              `yaml:"hide_thinking"`
+	HideGrounding bool              `yaml:"hide_grounding"`
 }
 
 func NewConfigFactory() *ConfigFactory {
@@ -60,15 +64,19 @@ func NewConfigFactory() *ConfigFactory {
 }
 
 type ConfigFactory struct {
-	configPath   string
-	outputFormat string
-	db           *storage.Storage
-	Config       *Config
+	configPath    string
+	outputFormat  string
+	hideThinking  bool
+	hideGrounding bool
+	db            *storage.Storage
+	Config        *Config
 }
 
 func (c *ConfigFactory) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&c.configPath, "config", "c", defaultConfigPath, "config file (default is "+defaultConfigPath+")")
 	flags.StringVarP(&c.outputFormat, "output", "o", "table", "output format (yaml, json, table)")
+	flags.BoolVar(&c.hideThinking, "hide-thinking", false, "hide thinking blocks from output")
+	flags.BoolVar(&c.hideGrounding, "hide-grounding", false, "hide grounding summary (server-side tool sources) from output")
 }
 
 func (c *ConfigFactory) LoadConfig() {
@@ -82,6 +90,14 @@ func (c *ConfigFactory) LoadConfig() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, fmt.Errorf("failed to load config: %v", err))
 		os.Exit(1)
+	}
+
+	if c.hideThinking {
+		c.Config.HideThinking = true
+	}
+
+	if c.hideGrounding {
+		c.Config.HideGrounding = true
 	}
 
 	if c.Config.DBPath == "" {
@@ -122,6 +138,14 @@ func (c *ConfigFactory) GetGeminiAPIKey() string {
 	}
 
 	return c.Config.GeminiAPIKey
+}
+
+func (c *ConfigFactory) GetGitHubToken() string {
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		return token
+	}
+
+	return c.Config.GitHubToken
 }
 
 func (c *ConfigFactory) SaveConfig() {

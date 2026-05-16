@@ -47,7 +47,7 @@ func (s *SystemPromptBuilder) DirList(depth int) string {
 	sb.WriteString("<currentDir>" + s.Cwd() + "</currentDir>\n")
 	sb.WriteString("<dirList>\n")
 	for _, dir := range dirs {
-		sb.WriteString(fmt.Sprintf("- %s\n", dir))
+		fmt.Fprintf(&sb, "- %s\n", dir)
 	}
 	sb.WriteString("</dirList>")
 

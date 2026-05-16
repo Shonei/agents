@@ -33,6 +33,18 @@ You need to provide a Gemini API key. You can set it in two ways:
    gemini_api_key: "your-gemini-key"
    ```
 
+If you plan to use the GitHub PR Review tools, you will also need a GitHub Personal Access Token (with `repo` scope):
+
+1. **Environment Variable** (Recommended):
+   ```bash
+   export GITHUB_TOKEN="your-github-token"
+   ```
+
+2. **Config File**:
+   ```yaml
+   github_token: "your-github-token"
+   ```
+
 ### Audit Logging
 
 The CLI supports audit logging to help you understand and debug agent conversations. By default, this is disabled. To enable it, add the `audit` section to your `~/.agents/config.yaml`.
@@ -103,6 +115,18 @@ agents add \
 *   `str_replace_editor`: Safely edits existing files using precise string replacement or insertion.
 *   `rag`: Search information in your local code base.
 *   `memory`: Long-term memory storage (store/retrieve).
+*   `github_pr_details`: Fetch PR metadata (title, body, state, author).
+*   `github_pr_diff`: Fetch the raw diff/patch of a PR.
+*   `github_pr_comments`: Fetch existing review and issue comments on a PR.
+*   `git_checkout_pr`: Fetch and checkout a PR branch locally.
+*   `github_pr_review`: Submit a formal PR review with inline comments.
+
+**Provider-executed (server-side) tools:**
+
+These tools run inside the model provider, so the SDK never invokes them locally. After each turn that used them, a short `Grounding:` summary is printed (search queries, sources, retrieved URLs) and the same data is appended to the audit log as a `grounding` event.
+
+*   `google_search`: Gemini's grounding-with-Google-Search. Model decides when to issue queries.
+*   `url_context`: Gemini's URL-context tool. Model fetches URLs it finds in the prompt and grounds the answer on their contents.
 
 #### System Prompt Templating
 System prompts support dynamic content via Go templates (e.g., adding current time or file listings).
@@ -133,6 +157,15 @@ agents engage coder --prompt "Write a hello world in Go"
 **Piped Input:**
 ```bash
 echo "Write a hello world in Go" | agents engage coder
+```
+
+### Example: PR Review Agent
+You can configure an agent to act as an automated PR reviewer using the GitHub tools. See the example configuration in `examples/pr-reviewer-config.yaml`.
+
+```bash
+export GITHUB_TOKEN="your-github-token"
+export AGENTS_CONFIG="./examples/pr-reviewer-config.yaml"
+agents engage pr-reviewer --prompt "Can you review PR #123 in the owner/repo repository?"
 ```
 
 ### Retrieval-Augmented Generation (RAG)

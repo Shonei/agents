@@ -1,5 +1,7 @@
 # Tool Specification: `web_search`
 
+> **Note:** For Gemini agents, prefer the built-in server-side tool [`google_search`](../README.md#provider-executed-server-side-tools) instead of this spec. The provider executes the search and returns grounded answers + grounding metadata (queries, sources). Use the spec below only if you need a fully local implementation or are wiring up a provider that lacks a native search tool.
+
 ## Overview
 This tool allows the agent to perform Google searches using the Google Custom Search JSON API. It is essential for retrieving up-to-date information, finding documentation, debugging errors, and general knowledge retrieval.
 

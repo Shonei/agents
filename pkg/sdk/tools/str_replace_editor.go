@@ -46,15 +46,7 @@ func (t *StrReplaceEditorTool) InputSchema() map[string]interface{} {
 			},
 			"old_str": map[string]interface{}{
 				"type":        "string",
-				"description": "The old string to replace. It has to match exactly or the tool will error. New lines and spaces matter. Only used for str_replace.",
-			},
-			"old_str_start_line_number": map[string]interface{}{
-				"type":        "integer",
-				"description": "The 1-based start line number of the old string. Only used for str_replace. If command is str_replace, old_str_start_line_number, old_str_end_line_number, and old_str must be provided.",
-			},
-			"old_str_end_line_number": map[string]interface{}{
-				"type":        "integer",
-				"description": "The 1-based end line number of the old string inclusive. Only used for str_replace. If command is str_replace, old_str_start_line_number, old_str_end_line_number, and old_str must be provided.",
+				"description": "The old string to replace. It has to match exactly and be unique in the file. New lines and spaces matter. Only used for str_replace.",
 			},
 			"insert_line": map[string]interface{}{
 				"type":        "integer",
@@ -63,12 +55,10 @@ func (t *StrReplaceEditorTool) InputSchema() map[string]interface{} {
 		},
 		"required": []interface{}{"command", "path"},
 		"example": map[string]interface{}{
-			"command":                   "str_replace",
-			"path":                      "pkg/sdk/tools/str_replace_editor.go",
-			"new_str":                   "new string",
-			"old_str":                   "old string",
-			"old_str_start_line_number": 1,
-			"old_str_end_line_number":   1,
+			"command": "str_replace",
+			"path":    "pkg/sdk/tools/str_replace_editor.go",
+			"new_str": "new string",
+			"old_str": "old string",
 		},
 	}
 }
@@ -81,9 +71,7 @@ type StrReplaceEditorToolInput struct {
 	NewStr1 string `json:"new_str"`
 
 	// string replacement params
-	OldStr1      string `json:"old_str"`
-	OldStrStart1 int    `json:"old_str_start_line_number"`
-	OldStrEnd1   int    `json:"old_str_end_line_number"`
+	OldStr1 string `json:"old_str"`
 
 	// insert params
 	InsertLine1 int `json:"insert_line"`
@@ -144,7 +132,7 @@ func (t *StrReplaceEditorTool) Call(input map[string]interface{}) (interface{}, 
 
 	switch in.Command {
 	case strReplaceCommand:
-		return t.handleStrReplace(path, content, pos, totalLines, in)
+		return t.handleStrReplace(path, content, in)
 	case insertCommand:
 		return t.handleInsert(path, content, pos, totalLines, in)
 	default:
@@ -152,35 +140,22 @@ func (t *StrReplaceEditorTool) Call(input map[string]interface{}) (interface{}, 
 	}
 }
 
-func (t *StrReplaceEditorTool) handleStrReplace(path, content string, pos []int, totalLines int, in StrReplaceEditorToolInput) (interface{}, error) {
-	if in.OldStr1 == "" || in.OldStrStart1 <= 0 || in.OldStrEnd1 <= 0 {
-		return "", sdk.NewAIError("old_str, old_str_start_line_number, and old_str_end_line_number are required")
+func (t *StrReplaceEditorTool) handleStrReplace(path, content string, in StrReplaceEditorToolInput) (interface{}, error) {
+	if in.OldStr1 == "" {
+		return "", sdk.NewAIError("old_str is required")
 	}
 
-	if in.OldStrEnd1 < in.OldStrStart1 {
-		return "end line before start line", nil
+	count := strings.Count(content, in.OldStr1)
+	if count == 0 {
+		return "old_str not found in file. Please make sure it matches exactly, including spaces and newlines.", nil
+	}
+	if count > 1 {
+		return "old_str found multiple times in file. Please provide more context in old_str to make it unique.", nil
 	}
 
-	if in.OldStrEnd1 > totalLines {
-		return fmt.Sprintf("line range exceeds file length (total %d)", totalLines), nil
-	}
+	newContent := strings.Replace(content, in.OldStr1, in.NewStr1, 1)
 
-	if in.OldStrEnd1-in.OldStrStart1+1 > maxLinesPerEdit {
-		return fmt.Sprintf("line range spans %d lines, exceeds limit %d", in.OldStrEnd1-in.OldStrStart1+1, maxLinesPerEdit), nil
-	}
-
-	existing := content[pos[in.OldStrStart1-1]:pos[in.OldStrEnd1]]
-
-	if !strings.Contains(existing, in.OldStr1) {
-		return fmt.Sprintf("content mismatch for lines %d-%d.\n\nFile content:\n%s", in.OldStrStart1, in.OldStrEnd1, existing), nil
-	}
-
-	var b strings.Builder
-	b.WriteString(content[:pos[in.OldStrStart1-1]])
-	b.WriteString(strings.ReplaceAll(existing, in.OldStr1, in.NewStr1))
-	b.WriteString(content[pos[in.OldStrEnd1]:])
-
-	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(newContent), 0o600); err != nil {
 		return "", fmt.Errorf("failed to write updated file: %w", err)
 	}
 

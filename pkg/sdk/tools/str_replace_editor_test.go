@@ -44,12 +44,10 @@ func TestEditFile_replace(t *testing.T) {
 	}
 
 	input := map[string]interface{}{
-		"command":                   "str_replace",
-		"path":                      path,
-		"old_str":                   "line 4\nline 5\nline 6\nline 7\n",
-		"old_str_start_line_number": 4,
-		"old_str_end_line_number":   7,
-		"new_str":                   "new\n",
+		"command": "str_replace",
+		"path":    path,
+		"old_str": "line 4\nline 5\nline 6\nline 7\n",
+		"new_str": "new\n",
 	}
 
 	result, err := strReplaceEditor.Call(input)
@@ -86,12 +84,10 @@ import (
 	}
 
 	input := map[string]interface{}{
-		"command":                   "str_replace",
-		"path":                      path,
-		"old_str":                   "\t\"fmt\"\n\t\"strings\"\n",
-		"old_str_start_line_number": 4,
-		"old_str_end_line_number":   5,
-		"new_str":                   "\t\"fmt\"\n\t\"os\"\n\t\"strings\"\n",
+		"command": "str_replace",
+		"path":    path,
+		"old_str": "\t\"fmt\"\n\t\"strings\"\n",
+		"new_str": "\t\"fmt\"\n\t\"os\"\n\t\"strings\"\n",
 	}
 
 	result, err := strReplaceEditor.Call(input)

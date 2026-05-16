@@ -315,16 +315,28 @@ function ResponseContent({ parsed }: { parsed: ParsedToolResponse }) {
   if (parsed.type === "json") {
     const jsonObj = JSON.parse(parsed.raw);
     const isArray = Array.isArray(jsonObj);
-    const itemCount = isArray ? jsonObj.length : Object.keys(jsonObj).length;
-    
+    const isObject = jsonObj !== null && typeof jsonObj === "object" && !isArray;
+    let label: string;
+    let metaInfo: string;
+    if (isArray) {
+      label = "JSON Array";
+      metaInfo = `${jsonObj.length} items`;
+    } else if (isObject) {
+      label = "JSON Object";
+      metaInfo = `${Object.keys(jsonObj).length} keys`;
+    } else {
+      label = jsonObj === null ? "JSON null" : `JSON ${typeof jsonObj}`;
+      metaInfo = String(jsonObj);
+    }
+
     return (
       <div className="json-response">
         <div className="response-header">
           <span className="response-type-badge json-badge">
-            JSON {isArray ? 'Array' : 'Object'}
+            {label}
           </span>
           <span className="response-meta-info">
-            {itemCount} {isArray ? 'items' : 'keys'} • {formatBytes(new Blob([parsed.raw]).size)}
+            {metaInfo} • {formatBytes(new Blob([parsed.raw]).size)}
           </span>
         </div>
         <div className="json-block-wrapper">

@@ -86,6 +86,12 @@ func (t *GithubPRCommentsTool) Call(input map[string]interface{}) (interface{}, 
 		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch review comments: %v", err)).WithReason(err)
 	}
 
+	// Fetch reviews (top-level review submission bodies: COMMENT/APPROVE/REQUEST_CHANGES)
+	reviews, _, err := t.client.PullRequests.ListReviews(ctx, in.Owner, in.Repo, in.PRNumber, nil)
+	if err != nil {
+		return nil, sdk.NewAIError(fmt.Sprintf("failed to fetch reviews: %v", err)).WithReason(err)
+	}
+
 	var results []map[string]interface{}
 
 	for _, c := range issueComments {
@@ -116,6 +122,27 @@ func (t *GithubPRCommentsTool) Call(input map[string]interface{}) (interface{}, 
 		}
 		if c.CreatedAt != nil {
 			comment["created_at"] = c.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		}
+		results = append(results, comment)
+	}
+
+	for _, r := range reviews {
+		body := r.GetBody()
+		state := r.GetState()
+		// Skip empty bodies unless the review carries meaningful state (e.g. APPROVED with no message).
+		if body == "" && state == "" {
+			continue
+		}
+		comment := map[string]interface{}{
+			"type":  "review",
+			"body":  body,
+			"state": state,
+		}
+		if r.User != nil {
+			comment["author"] = r.User.GetLogin()
+		}
+		if r.SubmittedAt != nil {
+			comment["created_at"] = r.SubmittedAt.Time.Format("2006-01-02T15:04:05Z07:00")
 		}
 		results = append(results, comment)
 	}

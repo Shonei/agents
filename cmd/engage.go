@@ -65,17 +65,33 @@ func (a *engage) createLogger() audit.Logger {
 
 func (a *engage) Run(cmd *cobra.Command, args []string) {
 	a.configFactory.LoadConfig()
+
 	agentName := args[0]
-
-	// Get the agent configuration by name
 	agent := a.configFactory.GetAgent(agentName)
-
 	auditLogger := a.createLogger()
 
+	var chatter sdk.Chatter
+	if agent.IsRouter() {
+		chatter = a.buildRouter(agentName, agent, auditLogger)
+	} else {
+		chatter = a.buildAgent(agent, auditLogger, false)
+	}
+
+	response, err := chatter.Chat(a.prompt)
+	if err != nil {
+		utils.NewExitError().WithMessage("failed to engage agent").WithReason(err).Done()
+	}
+
+	fmt.Println(response)
+}
+
+// buildAgent constructs a fully-wired *sdk.AI for a plain agent config.
+// When silentPrompt is true the system prompt is set without registering
+// a new audit user session — used for sub-agents owned by a router so
+// the whole router conversation lives in a single audit session.
+func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silentPrompt bool) *sdk.AI {
 	if !strings.Contains(strings.ToLower(agent.Model), "gemini") {
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
-
-		return
 	}
 
 	opts := []gemini.AgentOption{
@@ -107,8 +123,6 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	aiSDK.SetHideThinking(a.configFactory.Config.HideThinking)
 	aiSDK.SetHideGrounding(a.configFactory.Config.HideGrounding)
 
-	// Register tools. A YAML tool entry may resolve to either a local AITool
-	// or a provider-executed ServerSideTool (e.g. google_search, url_context).
 	for _, toolName := range agent.Tools {
 		if toolName.Config == nil {
 			toolName.Config = make(map[string]string)
@@ -131,23 +145,55 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported tool: %s", toolName.Name)).Done()
 	}
 
-	// Add system prompt if configured
 	if agent.SystemPrompts != "" {
 		rendered, err := sdk.RenderPrompt(agent.SystemPrompts)
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to render prompt").WithReason(err).Done()
 		}
 
-		aiSDK.SetSystemPrompt(rendered)
+		if silentPrompt {
+			aiSDK.SetSystemPromptSilent(rendered)
+		} else {
+			aiSDK.SetSystemPrompt(rendered)
+		}
 	}
 
-	response, err := aiSDK.Chat(a.prompt)
-	if err != nil {
-		utils.NewExitError().WithMessage("failed to engage agent").WithReason(err).Done()
+	return aiSDK
+}
+
+// buildRouter constructs a *sdk.RouterAI for a router agent config.
+// Sub-agents are built with silent prompts so all events land in the
+// single audit session registered here at the router level.
+func (a *engage) buildRouter(name string, agent config.Agent, auditLogger audit.Logger) *sdk.RouterAI {
+	routes := make(map[string]*sdk.AI, len(agent.Routes))
+
+	for _, route := range agent.Routes {
+		sub := a.configFactory.GetAgent(route.Agent)
+		routes[route.Agent] = a.buildAgent(sub, auditLogger, true)
 	}
 
-	// Print the response
-	fmt.Println(response)
+	meta := make([]sdk.RouteMeta, 0, len(agent.Routes))
+	for _, route := range agent.Routes {
+		meta = append(meta, sdk.RouteMeta{Agent: route.Agent, When: route.When})
+	}
+
+	classifierAgent := gemini.NewAgent(
+		gemini.WithAPIKey(a.configFactory.GetGeminiAPIKey()),
+		gemini.WithModel(agent.Classifier.Model),
+	)
+
+	routerAudit := audit.NewAudit(auditLogger)
+	routerAudit.User(sdk.SynthesizeRouterPrompt(name, meta, routes, agent.Classifier.Model))
+
+	return sdk.NewRouterAI(
+		name,
+		routes,
+		meta,
+		classifierAgent,
+		agent.Classifier.DefaultRoute,
+		agent.Classifier.ConfidenceThreshold,
+		routerAudit,
+	)
 }
 
 func findAITool(name string) sdk.AITool {

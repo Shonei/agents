@@ -42,11 +42,56 @@ type Agent struct {
 	ResponseModalities []string   `yaml:"response_modalities"`
 	ThinkingEnabled    bool       `yaml:"thinking_enabled"`
 	Tools              []ToolCall `yaml:"tools"`
+
+	// Router-only fields. Populated when Kind == AgentKindRouter.
+	Kind       string            `yaml:"kind,omitempty"`
+	Classifier *ClassifierConfig `yaml:"classifier,omitempty"`
+	Routes     []RouteConfig     `yaml:"routes,omitempty"`
+}
+
+// Agent kinds. An empty Kind is treated as AgentKindAgent for backward
+// compatibility with the original single-agent configs.
+const (
+	AgentKindAgent  = "agent"
+	AgentKindRouter = "router"
+)
+
+// ClassifierConfig configures the cheap-ish per-turn classifier that
+// powers a router agent. Only the sticky strategy is supported in v1.
+type ClassifierConfig struct {
+	Model               string  `yaml:"model"`
+	Strategy            string  `yaml:"strategy"`
+	DefaultRoute        string  `yaml:"default_route"`
+	ConfidenceThreshold float64 `yaml:"confidence_threshold"`
+}
+
+// RouteConfig declares a single sub-agent route inside a router agent.
+// Agent is the name of another agent in the same config; When is a short
+// natural-language hint shown to the classifier.
+type RouteConfig struct {
+	Agent string `yaml:"agent"`
+	When  string `yaml:"when"`
 }
 
 type ToolCall struct {
 	Name   string            `yaml:"name"`
 	Config map[string]string `yaml:"config"`
+}
+
+// DefaultConfidenceThreshold is the fallback confidence threshold applied
+// to a router when the YAML omits it. Picked to bias towards stability:
+// the classifier must be reasonably sure before we incur a handoff.
+const DefaultConfidenceThreshold = 0.7
+
+// ClassifierStrategySticky is the only strategy supported in v1. The
+// router re-classifies every turn but only swaps the active sub-agent
+// when the classifier confidently picks a different route.
+const ClassifierStrategySticky = "sticky"
+
+// IsRouter reports whether the agent is configured as a router rather
+// than a plain LLM-backed agent.
+func (a *Agent) IsRouter() bool {
+	return a.Kind == AgentKindRouter
 }
 
 type Config struct {
@@ -199,5 +244,104 @@ func readOrCreateConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
 
+	if err := normalizeAndValidateAgents(&config); err != nil {
+		return nil, err
+	}
+
 	return &config, nil
+}
+
+// normalizeAndValidateAgents fills in defaults on router agents and
+// rejects configurations that would blow up later at runtime (unknown
+// routes, missing classifier block, nested routers, etc.). Single-agent
+// configs are left untouched.
+func normalizeAndValidateAgents(c *Config) error {
+	for name, agent := range c.Agents {
+		if agent.Kind == "" {
+			agent.Kind = AgentKindAgent
+		}
+
+		switch agent.Kind {
+		case AgentKindAgent:
+			// nothing to validate for plain agents beyond what the SDK
+			// already enforces when it tries to build them.
+		case AgentKindRouter:
+			if err := validateRouterAgent(name, &agent, c.Agents); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("agent %q: unknown kind %q (expected %q or %q)",
+				name, agent.Kind, AgentKindAgent, AgentKindRouter)
+		}
+
+		c.Agents[name] = agent
+	}
+
+	return nil
+}
+
+func validateRouterAgent(name string, agent *Agent, all map[string]Agent) error {
+	if agent.Classifier == nil {
+		return fmt.Errorf("router %q: missing classifier block", name)
+	}
+
+	if agent.Classifier.Model == "" {
+		return fmt.Errorf("router %q: classifier.model is required", name)
+	}
+
+	if agent.Classifier.Strategy == "" {
+		agent.Classifier.Strategy = ClassifierStrategySticky
+	}
+
+	if agent.Classifier.Strategy != ClassifierStrategySticky {
+		return fmt.Errorf("router %q: classifier.strategy %q is not supported (only %q in v1)",
+			name, agent.Classifier.Strategy, ClassifierStrategySticky)
+	}
+
+	if agent.Classifier.ConfidenceThreshold == 0 {
+		agent.Classifier.ConfidenceThreshold = DefaultConfidenceThreshold
+	}
+
+	if agent.Classifier.ConfidenceThreshold < 0 || agent.Classifier.ConfidenceThreshold > 1 {
+		return fmt.Errorf("router %q: classifier.confidence_threshold must be in [0,1], got %v",
+			name, agent.Classifier.ConfidenceThreshold)
+	}
+
+	if len(agent.Routes) < 2 {
+		return fmt.Errorf("router %q: at least 2 routes are required, got %d", name, len(agent.Routes))
+	}
+
+	seen := make(map[string]struct{}, len(agent.Routes))
+	for i, route := range agent.Routes {
+		if route.Agent == "" {
+			return fmt.Errorf("router %q: routes[%d].agent is required", name, i)
+		}
+
+		if route.Agent == name {
+			return fmt.Errorf("router %q: route refers back to itself", name)
+		}
+
+		target, ok := all[route.Agent]
+		if !ok {
+			return fmt.Errorf("router %q: routes[%d] points to unknown agent %q", name, i, route.Agent)
+		}
+
+		if target.Kind == AgentKindRouter {
+			return fmt.Errorf("router %q: routes[%d] points to another router %q (nested routers are not supported)",
+				name, i, route.Agent)
+		}
+
+		if _, dup := seen[route.Agent]; dup {
+			return fmt.Errorf("router %q: route %q is declared more than once", name, route.Agent)
+		}
+
+		seen[route.Agent] = struct{}{}
+	}
+
+	if _, ok := seen[agent.Classifier.DefaultRoute]; !ok {
+		return fmt.Errorf("router %q: classifier.default_route %q is not one of the configured routes",
+			name, agent.Classifier.DefaultRoute)
+	}
+
+	return nil
 }

@@ -139,6 +139,17 @@ These tools run inside the model provider, so the SDK never invokes them locally
 System prompts support dynamic content via Go templates (e.g., adding current time or file listings).
 See [Templating System Prompts](docs/templating_system_prompts.md) for a full guide.
 
+#### Router Agents
+A **router agent** combines several specialized sub-agents under one name and
+automatically dispatches each user turn to the most appropriate one based on a
+cheap per-turn classifier. Use this to give the user a single chat that moves
+between, e.g., a `planner` and a `builder` persona without having to switch
+agents by hand.
+
+Router agents must be authored directly in YAML (the `agents add` shortcut
+does not yet cover them). See [Router Agents](docs/router_agents.md) for the
+full configuration reference and runtime semantics.
+
 #### List Agents
 View all configured agents.
 

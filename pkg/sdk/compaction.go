@@ -73,7 +73,7 @@ func (a *AI) maybeCompact(messages *[]InputMessage) (bool, error) {
 		a.lastInputTokens, budget, len(toEvict), len(*messages),
 	)
 
-	summary, err := a.summarizeHistory(toEvict)
+	summary, err := a.SummarizeMessages(toEvict)
 	if err != nil {
 		return false, fmt.Errorf("compaction summary failed: %w", err)
 	}
@@ -140,10 +140,11 @@ func isUserTextBoundary(msg InputMessage) bool {
 	}
 }
 
-// summarizeHistory asks the underlying agent to produce a summary of the
-// given messages. The summarizer call uses the same model but with no tools
-// and a dedicated system prompt so the output is plain prose.
-func (a *AI) summarizeHistory(toEvict []InputMessage) (string, error) {
+// SummarizeMessages asks the underlying agent to produce a plain-prose
+// summary of the given messages. Used both by the in-AI compaction loop
+// and by RouterAI when generating a handoff summary. The call uses the
+// same model but with no tools and a dedicated system prompt.
+func (a *AI) SummarizeMessages(toEvict []InputMessage) (string, error) {
 	serialized := serializeForSummary(toEvict)
 
 	req := CreateMessageRequest{

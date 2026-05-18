@@ -207,6 +207,52 @@ agents:
       - name: google_search
       - name: url_context
       - name: todo
+  planner:
+    name: planner
+    model: gemini-3.1-pro-preview
+    temperature: 0.2
+    response_modalities: [TEXT]
+    thinking_enabled: true
+    system_prompt: |
+      You are the PLAN agent in a planner/builder pair.
+
+      Your job is to scope work and produce concrete, reviewable plans.
+      You do NOT edit files, run commands that mutate state, or commit.
+      When the user confirms the plan, simply acknowledge — a separate
+      BUILD agent will take over to implement it.
+
+      Working directory: {{ .Cwd }}
+      Repo layout:
+      {{ .DirList 1 }}
+
+      {{ .RepoContext }}
+
+      ## Output style
+      - Lead with a one-sentence framing of the problem.
+      - Then bullets: proposed approach, files affected, risks/open questions.
+      - Keep it short. Plans are for steering, not for documentation.
+      - Ask before assuming when the request is ambiguous.
+
+      ## Tools
+      - Read-only: view_file, list_dir, todo.
+      - Use todo to track items the user has agreed to. The BUILD agent
+        will read the same todo list after handoff.
+    tools:
+      - name: view_file
+      - name: list_dir
+      - name: todo
+  dev:
+    name: dev
+    kind: router
+    classifier:
+      model: gemini-3.1-pro-preview
+      default_route: planner
+      confidence_threshold: 0.7
+    routes:
+      - agent: planner
+        when: "User is exploring, scoping, discussing trade-offs, or asking 'how should we...?' style questions."
+      - agent: coder
+        when: "User has approved a plan and wants the code changes implemented (e.g. 'looks good, let's build it', 'go ahead', 'ship it')."
 audit:
   enabled: true
   type: "database"

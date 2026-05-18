@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	utils.RegisterResource(config.Agent{}, []string{"Name", "Model", "Tools.Name"})
+	utils.RegisterResource(config.Agent{}, []string{"Name", "Kind", "Model", "Tools.Name"})
 }
 
 type list struct {

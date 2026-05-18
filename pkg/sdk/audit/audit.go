@@ -22,6 +22,8 @@ const (
 	FunctionResponseEvent = "function_response"
 	CompactionEvent       = "compaction"
 	GroundingEvent        = "grounding"
+	RouteSelectionEvent   = "route_selection"
+	HandoffEvent          = "handoff"
 )
 
 type Logger interface {
@@ -44,6 +46,8 @@ type Event struct {
 	FunctionCall     any    `json:"function_call,omitempty"`
 	FunctionResponse any    `json:"function_response,omitempty"`
 	InitialMessage   any    `json:"initial_message,omitempty"`
+	RouteSelection   any    `json:"route_selection,omitempty"`
+	Handoff          any    `json:"handoff,omitempty"`
 }
 
 type User struct {
@@ -173,12 +177,17 @@ func (d *dbLogger) LogEvent(event Event) {
 	}
 
 	var payload any
-	if event.FunctionCall != nil {
+	switch {
+	case event.FunctionCall != nil:
 		payload = event.FunctionCall
-	} else if event.FunctionResponse != nil {
+	case event.FunctionResponse != nil:
 		payload = event.FunctionResponse
-	} else if event.InitialMessage != nil {
+	case event.InitialMessage != nil:
 		payload = event.InitialMessage
+	case event.RouteSelection != nil:
+		payload = event.RouteSelection
+	case event.Handoff != nil:
+		payload = event.Handoff
 	}
 
 	b, _ := json.Marshal(payload)

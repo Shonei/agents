@@ -77,6 +77,22 @@ func (a *AI) SetSystemPrompt(prompt string) {
 	a.systemPrompt = prompt
 }
 
+// SetSystemPromptSilent sets the agent's system prompt without registering
+// a new audit "user" session. Use this when the audit session is owned by
+// a parent (e.g. RouterAI registers the session once and sets each
+// sub-agent's prompt silently so all sub-agent events land in the same
+// session).
+func (a *AI) SetSystemPromptSilent(prompt string) {
+	a.systemPrompt = prompt
+}
+
+// Audit exposes the underlying audit handle so composite agents (e.g.
+// RouterAI) can log events through the same audit channel without
+// constructing a parallel one.
+func (a *AI) Audit() *audit.Audit {
+	return a.audit
+}
+
 func (a *AI) Chat(message string) (string, error) {
 	fmt.Println("Chat started. Press Ctrl+C to exit.")
 
@@ -93,17 +109,6 @@ func (a *AI) Chat(message string) (string, error) {
 		message = input
 	}
 
-	tools := []Tool{}
-	for _, tool := range a.tools {
-		tools = append(tools, NewTool(tool.Name(), tool.Description(), tool.InputSchema()))
-	}
-
-	serverTools := []ServerTool{}
-	for _, st := range a.serverTools {
-		serverTools = append(serverTools, ServerTool{Name: st.Kind()})
-	}
-
-	// Initial message
 	history := []InputMessage{
 		NewTextMessage(RoleUser, message),
 	}
@@ -114,20 +119,13 @@ func (a *AI) Chat(message string) (string, error) {
 	})
 
 	for {
-		// Process current history
-		updatedHistory, _, err := a.chat(chatPayload{
-			tools:       tools,
-			serverTools: serverTools,
-			messages:    history,
-		})
+		updatedHistory, err := a.RunTurn(history)
 		if err != nil {
 			return "", err
 		}
 
-		// Update history with the full conversation from this turn
 		history = updatedHistory
 
-		// Prompt for next user input
 		nextMessage, err := utils.GatherUserContent()
 		if err != nil {
 			return "", err
@@ -148,27 +146,68 @@ func (a *AI) Chat(message string) (string, error) {
 	return "", nil // Reached when user input is empty which is treated as an exit condition
 }
 
-type chatPayload struct {
-	message     string
-	tools       []Tool
-	serverTools []ServerTool
-	messages    []InputMessage
+// RunOnce runs a single non-interactive prompt through the standard tool
+// loop and returns the assistant's final text. Useful for sub-agent calls
+// (agent-as-tool) and other one-shot, no-stdin scenarios.
+func (a *AI) RunOnce(prompt string) (string, error) {
+	a.audit.LogEvent(audit.Event{
+		Type:    audit.InitialMessageEvent,
+		Content: prompt,
+	})
+
+	history, err := a.RunTurn([]InputMessage{NewTextMessage(RoleUser, prompt)})
+	if err != nil {
+		return "", err
+	}
+
+	if len(history) == 0 {
+		return "", nil
+	}
+
+	last := history[len(history)-1]
+	if last.Role != RoleAssistant {
+		return "", nil
+	}
+
+	switch v := last.Content.(type) {
+	case string:
+		return v, nil
+	case []ContentBlock:
+		var b strings.Builder
+		for _, block := range v {
+			if block.Type == ContentTypeText {
+				b.WriteString(block.Text)
+			}
+		}
+
+		return b.String(), nil
+	}
+
+	return "", nil
 }
 
-func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
-	// Build messages list
-	messages := c.messages
-	if len(messages) == 0 {
-		messages = []InputMessage{
-			NewTextMessage(RoleUser, c.message),
-		}
+// RunTurn drives the inner request/tool-loop for a single user turn.
+// `history` must already end with the new user message. It returns the
+// updated history with the assistant reply (and any tool_use / tool_result
+// blocks generated during the turn) appended.
+func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
+	tools := []Tool{}
+	for _, tool := range a.tools {
+		tools = append(tools, NewTool(tool.Name(), tool.Description(), tool.InputSchema()))
 	}
+
+	serverTools := []ServerTool{}
+	for _, st := range a.serverTools {
+		serverTools = append(serverTools, ServerTool{Name: st.Kind()})
+	}
+
+	messages := history
 
 	// Loop until we get a response without tool calls
 	for {
 		compacted, err := a.maybeCompact(&messages)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		if compacted {
@@ -177,15 +216,15 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 
 		request := CreateMessageRequest{
 			Messages:    messages,
-			Tools:       c.tools,
-			ServerTools: c.serverTools,
+			Tools:       tools,
+			ServerTools: serverTools,
 			ToolChoice:  NewAutoToolChoice(),
 			System:      a.systemPrompt,
 		}
 
 		response, err := a.agent.CreateMessage(request)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		a.lastInputTokens = response.Usage.InputTokens
@@ -320,9 +359,8 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 			}
 		}
 
-		// no tools to process so we're done
 		if !hasToolCalls {
-			return messages, response, nil
+			return messages, nil
 		}
 
 		var allToolResults []ContentBlock
@@ -333,7 +371,7 @@ func (a *AI) chat(c chatPayload) ([]InputMessage, *MessageResponse, error) {
 
 			toolResults, err := a.processTools(block)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			allToolResults = append(allToolResults, toolResults...)
@@ -465,4 +503,17 @@ type functionCallAudit struct {
 type functionResponseAudit struct {
 	Name     string `json:"name"`
 	Response any    `json:"response"`
+}
+
+type routeSelectionAudit struct {
+	Route      string  `json:"route"`
+	Confidence float64 `json:"confidence"`
+	Reason     string  `json:"reason"`
+	LatencyMs  int64   `json:"latency_ms"`
+}
+
+type handoffAudit struct {
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Summary string `json:"summary"`
 }

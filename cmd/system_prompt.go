@@ -38,16 +38,41 @@ func (a *sPrompt) Run(cmd *cobra.Command, args []string) {
 	a.configFactory.LoadConfig()
 
 	agentName := args[0]
-
-	// Get the agent configuration by name
 	agent := a.configFactory.GetAgent(agentName)
 
-	// Render the prompt
+	if agent.IsRouter() {
+		a.printRouter(agentName, agent)
+
+		return
+	}
+
 	prompt, err := sdk.RenderPrompt(agent.SystemPrompts)
 	if err != nil {
 		utils.NewExitError().WithMessage("failed to render prompt").WithReason(err).Done()
 	}
 
+	a.print(prompt)
+}
+
+// printRouter prints each sub-agent's rendered system prompt under a
+// header so the user can see what every route will actually receive. A
+// router itself has no system prompt of its own.
+func (a *sPrompt) printRouter(name string, agent config.Agent) {
+	a.print(fmt.Sprintf("# %s (router)\n", name))
+
+	for _, route := range agent.Routes {
+		sub := a.configFactory.GetAgent(route.Agent)
+
+		rendered, err := sdk.RenderPrompt(sub.SystemPrompts)
+		if err != nil {
+			utils.NewExitError().WithMessage("failed to render prompt for " + route.Agent).WithReason(err).Done()
+		}
+
+		a.print(fmt.Sprintf("\n## %s\n\n%s\n", route.Agent, rendered))
+	}
+}
+
+func (a *sPrompt) print(prompt string) {
 	if a.pretty {
 		out, err := glamour.Render(prompt, "dark")
 		if err != nil {

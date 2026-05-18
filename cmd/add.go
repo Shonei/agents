@@ -35,7 +35,11 @@ func NewAdd(c *config.ConfigFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add --name <name> --system-prompt <system-prompt> --model <model> --tools <tools>",
 		Short: "Add a new agent to your config",
-		Run:   a.Run,
+		Long: "Add a new agent to your config.\n\n" +
+			"Note: this command authors plain (single-model) agents only. To " +
+			"create a router agent (multiple sub-agents dispatched by a " +
+			"classifier), edit your YAML config directly. See docs/router_agents.md.",
+		Run: a.Run,
 	}
 
 	spb := &sdk.SystemPromptBuilder{}

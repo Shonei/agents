@@ -46,6 +46,10 @@ func NewStorage(dbPath string) (*Storage, error) {
 }
 
 func (s *Storage) Close() error {
+	// Best-effort checkpoint to flush the WAL into the main DB file. If this
+	// fails (e.g. read-only DB or already closed) we still try to close.
+	_, _ = s.db.Exec("CHECKPOINT;")
+
 	return s.db.Close()
 }
 

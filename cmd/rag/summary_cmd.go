@@ -50,12 +50,12 @@ func (r *summaryCommand) RunSummary(cmd *cobra.Command, args []string) {
 		utils.NewExitError().WithMessage("failed to create summary strategy").WithReason(err).Done()
 	}
 
-	chunks, err := strategy.Summarize(string(content))
+	chunks, err := strategy.Summarize(r.file, string(content))
 	if err != nil {
 		utils.NewExitError().WithMessage("failed to summarize content").WithReason(err).Done()
 	}
 
 	for i, chunk := range chunks {
-		fmt.Printf("--- Chunk %d ---\n%s\n\n", i+1, chunk)
+		fmt.Printf("--- Chunk %d ---\n%s\n\n", i+1, chunk.Content)
 	}
 }

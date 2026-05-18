@@ -1,13 +1,19 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/svent/sift/gitignore"
 )
+
+// binarySniffSize is the number of bytes inspected when deciding whether a
+// file is binary. Git uses 8000; we follow the same convention.
+const binarySniffSize = 8000
 
 // SkipDirs contains directory names that should always be skipped during file collection.
 var SkipDirs = map[string]bool{
@@ -46,6 +52,26 @@ var SkipDirs = map[string]bool{
 type File struct {
 	Path    string
 	Content string
+}
+
+// IsBinaryFile reports whether the file at path looks like binary data. The
+// detection mirrors the heuristic used by Git: read up to binarySniffSize
+// bytes and treat the file as binary if it contains a NUL byte.
+func IsBinaryFile(path string) (bool, error) {
+	f, err := os.Open(path) // #nosec G304 - caller-supplied path is intentional
+	if err != nil {
+		return false, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	buf := make([]byte, binarySniffSize)
+
+	n, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return false, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return bytes.IndexByte(buf[:n], 0) >= 0, nil
 }
 
 // CollectFiles walks the provided fullPath directory and returns files suitable for upload.
@@ -100,6 +126,15 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 		if dryRun {
 			files = append(files, File{Path: filepath.ToSlash(rel), Content: ""})
 
+			return nil
+		}
+
+		isBin, binErr := IsBinaryFile(path)
+		if binErr != nil {
+			return fmt.Errorf("failed to detect binary file %s: %w", path, binErr)
+		}
+
+		if isBin {
 			return nil
 		}
 

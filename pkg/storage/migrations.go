@@ -119,6 +119,8 @@ func runMigrations(db *goqu.Database) error {
 		seen[m.name] = struct{}{}
 	}
 
+	ranAny := false
+
 	for _, migration := range registeredMigrations {
 		if _, alreadyRan := executed[migration.name]; alreadyRan {
 			continue
@@ -130,6 +132,18 @@ func runMigrations(db *goqu.Database) error {
 
 		if err := addMigration(db, migration.name); err != nil {
 			return fmt.Errorf("failed to record migration %q: %w", migration.name, err)
+		}
+
+		ranAny = true
+	}
+
+	// Force a checkpoint so any DDL we just applied is materialized into the
+	// main DB file rather than left in the WAL. This avoids an unreplayable
+	// WAL on the next startup if the process is killed before a clean shutdown
+	// (see DuckDB issues #19712 / #22124).
+	if ranAny {
+		if _, err := db.Exec("CHECKPOINT;"); err != nil {
+			return fmt.Errorf("failed to checkpoint after migrations: %w", err)
 		}
 	}
 

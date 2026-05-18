@@ -111,7 +111,7 @@ agents add \
 *   `write_to_file`: Create or overwrite files.
 *   `view_file`: Read file contents.
 *   `list_dir`: List directory contents.
-*   `bash`: Execute shell commands.
+*   `bash`: Execute shell commands. By default, prompts the user for confirmation before execution.
 *   `str_replace_editor`: Safely edits existing files using precise string replacement or insertion.
 *   `rag`: Search information in your local code base.
 *   `memory`: Long-term memory storage (store/retrieve).
@@ -120,6 +120,21 @@ agents add \
 *   `github_pr_comments`: Fetch existing review and issue comments on a PR.
 *   `git_checkout_pr`: Fetch and checkout a PR branch locally.
 *   `github_pr_review`: Submit a formal PR review with inline comments.
+
+#### Tool Configuration
+
+Some tools support custom configuration via the `config` block in the YAML file.
+
+**Bash Tool (`bash`)**
+By default, the `bash` tool prompts the user for confirmation before executing any command. You can disable this for fully autonomous agents (e.g., read-only sub-agents) by setting `require_confirmation: "false"`.
+
+```yaml
+      - name: bash
+        config:
+          require_confirmation: "false"
+```
+
+> **⚠️ SECURITY WARNING:** Disabling confirmation for the `bash` tool allows the agent to execute arbitrary shell commands on your machine without oversight. Only do this for trusted, read-only sub-agents with strict system prompts. Future versions of this project plan to introduce OS-level sandboxing (e.g., chroot jails or containers) to mitigate this risk.
 
 **Provider-executed (server-side) tools:**
 
@@ -147,8 +162,35 @@ between, e.g., a `planner` and a `builder` persona without having to switch
 agents by hand.
 
 Router agents must be authored directly in YAML (the `agents add` shortcut
-does not yet cover them). See [Router Agents](docs/router_agents.md) for the
-full configuration reference and runtime semantics.
+does not yet cover them).
+
+**Example Configuration:**
+```yaml
+agents:
+  planner:
+    model: gemini-3.1-pro-preview
+    system_prompt: "You are the PLAN agent. Help the user scope and design changes."
+    tools: [view_file, list_dir, todo]
+
+  builder:
+    model: gemini-3.1-pro-preview
+    system_prompt: "You are the BUILD agent. Implement the plan the user has approved."
+    tools: [view_file, list_dir, str_replace_editor, write_to_file, bash]
+
+  dev:
+    kind: router
+    classifier:
+      model: gemini-3.1-pro-preview
+      default_route: planner
+      confidence_threshold: 0.7
+    routes:
+      - agent: planner
+        when: "User is exploring, scoping, or asking 'how should we...'."
+      - agent: builder
+        when: "User has approved a plan and wants code changes implemented."
+```
+
+See [Router Agents](docs/router_agents.md) for the full configuration reference and runtime semantics.
 
 #### List Agents
 View all configured agents.
@@ -187,6 +229,8 @@ agents engage pr-reviewer --prompt "Can you review PR #123 in the owner/repo rep
 ```
 
 ### Retrieval-Augmented Generation (RAG)
+
+> **Note:** The RAG feature is currently experimental.
 
 The CLI supports RAG to let agents answer questions based on your local files. This uses **DuckDB** for storage and **Gemini** for embeddings.
 

@@ -1,5 +1,7 @@
 # RAG Commands Reference
 
+> **Note:** The RAG feature is currently experimental.
+
 The RAG (Retrieval-Augmented Generation) commands allow you to manage local document stores that can be searched by your agents. These commands use DuckDB for storage and Gemini for generating embeddings.
 
 ## Prerequisites

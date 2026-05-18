@@ -38,7 +38,7 @@ func NewIndexCommand(c *config.ConfigFactory) *cobra.Command {
 
 	flags.StringVar(&r.dirPath, "dir", "", "Path to the directory to index. Files in a .gitignore file will be ignored. If both --dir and --file are set an error will be returned.")
 	flags.StringVar(&r.file, "file", "", "Path to a specific file to index. If both --dir and --file are set an error will be returned.")
-	flags.StringVar(&r.strategy, "strategy", "", "Indexing strategy to use. Defaults to 'none'. Available strategies: 'none', 'summary'.")
+	flags.StringVar(&r.strategy, "strategy", "", "Indexing strategy to use. Defaults to 'none'. Available strategies: 'none', 'summary', 'go'.")
 
 	cmd.AddCommand(NewSummaryCommand(c))
 
@@ -87,6 +87,15 @@ func (r *indexCommand) indexFile() {
 		gemini.WithAPIKey(geminiKey),
 		gemini.WithEmbeddingDim(storage.SearchVectorSize),
 	)
+
+	isBin, err := utils.IsBinaryFile(r.file)
+	if err != nil {
+		utils.NewExitError().WithMessage("failed to inspect file").WithReason(err).Done()
+	}
+
+	if isBin {
+		utils.NewExitError().WithMessage(fmt.Sprintf("refusing to index binary file %s", r.file)).Done()
+	}
 
 	file, err := os.ReadFile(r.file)
 	if err != nil {
@@ -161,48 +170,70 @@ func (r *indexCommand) indexDir() {
 			continue
 		}
 
-		chunks, err := strategy(file.Content)
+		chunks, err := strategy(file.Path, file.Content)
 		if err != nil {
-			utils.NewExitError().WithMessage("failed to chunk content").WithReason(err).Done()
+			fmt.Fprintf(os.Stderr, "skipping %s: failed to chunk content: %v\n", file.Path, err)
+
+			continue
 		}
 
 		fmt.Printf("Indexing file %s\n", file.Path)
 
-		for i, chunk := range chunks {
-			vec, err := g.Embedding(chunk)
-			if err != nil {
-				utils.NewExitError().WithMessage("failed to create embedding").WithReason(err).Done()
-			}
+		if err := r.indexChunks(store, g, file, chunks, storeName); err != nil {
+			fmt.Fprintf(os.Stderr, "skipping %s: %v\n", file.Path, err)
 
-			fileMeta := map[string]string{
-				"path":         file.Path,
-				"indexed_at":   time.Now().Format(time.RFC3339),
-				"size":         fmt.Sprintf("%d", len(file.Content)),
-				"ext":          filepath.Ext(file.Path),
-				"chunk":        fmt.Sprintf("%d", i),
-				"total_chunks": fmt.Sprintf("%d", len(chunks)),
-				"strategy":     r.strategy,
-				"file_content": file.Content,
-			}
-
-			doc := &storage.Document{
-				Content: chunk,
-				Meta:    fileMeta,
-				Store:   storeName,
-				Vec:     vec,
-			}
-
-			if err := store.AddDocument(doc); err != nil {
-				utils.NewExitError().WithMessage("failed to store document").WithReason(err).Done()
-			}
+			continue
 		}
 	}
 }
 
-func (r *indexCommand) getStrategy() (func(string) ([]string, error), error) {
+func (r *indexCommand) indexChunks(
+	store *storage.Storage,
+	g *gemini.Agent,
+	file utils.File,
+	chunks []index.Chunk,
+	storeName string,
+) error {
+	for i, chunk := range chunks {
+		vec, err := g.Embedding(chunk.Content)
+		if err != nil {
+			return fmt.Errorf("failed to create embedding: %w", err)
+		}
+
+		fileMeta := map[string]string{
+			"path":         file.Path,
+			"indexed_at":   time.Now().Format(time.RFC3339),
+			"size":         fmt.Sprintf("%d", len(file.Content)),
+			"ext":          filepath.Ext(file.Path),
+			"chunk":        fmt.Sprintf("%d", i),
+			"total_chunks": fmt.Sprintf("%d", len(chunks)),
+			"strategy":     r.strategy,
+			"file_content": file.Content,
+		}
+
+		for k, v := range chunk.Meta {
+			fileMeta[k] = v
+		}
+
+		doc := &storage.Document{
+			Content: chunk.Content,
+			Meta:    fileMeta,
+			Store:   storeName,
+			Vec:     vec,
+		}
+
+		if err := store.AddDocument(doc); err != nil {
+			return fmt.Errorf("failed to store document: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *indexCommand) getStrategy() (index.Strategy, error) {
 	if r.strategy == "" || r.strategy == "none" {
-		return func(s string) ([]string, error) {
-			return []string{s}, nil
+		return func(path string, s string) ([]index.Chunk, error) {
+			return []index.Chunk{{Content: s, Meta: map[string]string{}}}, nil
 		}, nil
 	}
 
@@ -213,6 +244,12 @@ func (r *indexCommand) getStrategy() (func(string) ([]string, error), error) {
 		}
 
 		return strats.Summarize, nil
+	}
+
+	if r.strategy == "go" {
+		strats := index.NewGoStrategy()
+
+		return strats.Chunk, nil
 	}
 
 	return nil, fmt.Errorf("unknown strategy: %s", r.strategy)

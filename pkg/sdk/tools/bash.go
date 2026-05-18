@@ -12,7 +12,9 @@ import (
 )
 
 // BashTool is given an input command and executes it
-type BashTool struct{}
+type BashTool struct {
+	requireConfirmation bool
+}
 
 func (b *BashTool) Name() string {
 	return "bash"
@@ -23,6 +25,10 @@ func (b *BashTool) Description() string {
 }
 
 func (b *BashTool) Init(config map[string]string, _ *config.ConfigFactory) {
+	b.requireConfirmation = true
+	if val, ok := config["require_confirmation"]; ok && val == "false" {
+		b.requireConfirmation = false
+	}
 }
 
 func (b *BashTool) InputSchema() map[string]interface{} {
@@ -45,18 +51,23 @@ func (b *BashTool) Call(input map[string]interface{}) (interface{}, error) {
 		return "", sdk.NewAIError("command must be a string")
 	}
 
-	color.New(color.FgYellow, color.Bold).Println("\nYou are about to execute the following command:")
-	color.Cyan("  %s", command)
-	answer, _ := utils.AskUserConfirmation()
-	switch answer {
-	case utils.ToolExecutionYes:
-		// continue
-	case utils.ToolExecutionSkip:
-		return "<exitcode>1</exitcode><output>Skipped by user</output>", nil
-	case utils.ToolExecutionAbort:
-		utils.NewExitError().WithMessage("tool execution aborted by user").Done()
-	case utils.ToolExecutionUnknown:
-		utils.NewExitError().WithMessage("unknown user choice").Done()
+	if b.requireConfirmation {
+		color.New(color.FgYellow, color.Bold).Println("\nYou are about to execute the following command:")
+		color.Cyan("  %s", command)
+		answer, _ := utils.AskUserConfirmation()
+		switch answer {
+		case utils.ToolExecutionYes:
+			// continue
+		case utils.ToolExecutionSkip:
+			return "<exitcode>1</exitcode><output>Skipped by user</output>", nil
+		case utils.ToolExecutionAbort:
+			utils.NewExitError().WithMessage("tool execution aborted by user").Done()
+		case utils.ToolExecutionUnknown:
+			utils.NewExitError().WithMessage("unknown user choice").Done()
+		}
+	} else {
+		color.New(color.FgYellow, color.Bold).Println("\nExecuting command (auto-confirmed):")
+		color.Cyan("  %s", command)
 	}
 
 	// Execute the command

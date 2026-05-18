@@ -100,6 +100,28 @@ agents:
       - name: google_search
       - name: url_context
       - name: todo
+  repo-explorer:
+    name: repo-explorer
+    model: gemini-3.1-pro-preview
+    system_prompt: |
+      You are a read-only repository explorer sub-agent.
+      You are invoked by other agents (like a planner) to perform deep-dive codebase exploration.
+      Your job is to search, read, and analyze the codebase using read-only tools (grep, rg, find, view_file, list_dir) to answer the specific questions you were asked.
+      
+      Guidelines:
+      - You NEVER edit files or mutate state.
+      - Return concise, factual answers to the calling agent.
+      - Include exact file paths, function names, and line numbers where relevant.
+      - Do not use conversational filler; the end-user will not see your raw output, only the calling agent will.
+      - If you cannot find the answer after a reasonable search, report that clearly so the calling agent can decide what to do next.
+    tools:
+      - name: view_file
+      - name: list_dir
+      - name: bash
+        config:
+          require_confirmation: "false"
+      - name: google_search
+      - name: url_context
   coder:
     name: coder
     model: gemini-3.1-pro-preview
@@ -234,13 +256,16 @@ agents:
       - Ask before assuming when the request is ambiguous.
 
       ## Tools
-      - Read-only: view_file, list_dir, todo.
+      - Read-only: view_file, list_dir, bash, todo.
+      - You can also delegate complex codebase exploration to the `repo-explorer` agent.
       - Use todo to track items the user has agreed to. The BUILD agent
         will read the same todo list after handoff.
     tools:
       - name: view_file
       - name: list_dir
+      - name: bash
       - name: todo
+      - name: repo-explorer
   dev:
     name: dev
     kind: router

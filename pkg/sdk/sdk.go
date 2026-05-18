@@ -60,7 +60,7 @@ func NewAI(agent Agent, audit *audit.Audit) *AI {
 	return &AI{
 		agent:    agent,
 		audit:    audit,
-		maxTurns: 30, // Default max turns to prevent infinite loops
+		maxTurns: 120, // Default max turns to prevent infinite loops
 	}
 }
 

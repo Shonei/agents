@@ -24,7 +24,7 @@ func NewSummaryStrategy(c *config.ConfigFactory) (*SummaryStrategy, error) {
 	}, nil
 }
 
-func (s *SummaryStrategy) Summarize(content string) ([]string, error) {
+func (s *SummaryStrategy) Summarize(path string, content string) ([]Chunk, error) {
 	sysPrompt := `You are an expert software engineer specialized in code analysis and documentation.
 The provided text is primarily source code. Your task is to generate a structured summary suitable for a RAG (Retrieval-Augmented Generation) system.
 This summary will be used to index the code for semantic search, so it is critical that you capture the intent, functionality, and key logic of the code.
@@ -67,19 +67,22 @@ Do not include any text outside the <chunk> tags.`
 	return extractChunks(response), nil
 }
 
-func extractChunks(text string) []string {
+func extractChunks(text string) []Chunk {
 	re := regexp.MustCompile(`(?s)<chunk>\s*(.*?)\s*</chunk>`)
 	matches := re.FindAllStringSubmatch(text, -1)
 
-	var chunks []string
+	var chunks []Chunk
 	for _, match := range matches {
 		if len(match) > 1 {
-			chunks = append(chunks, match[1])
+			chunks = append(chunks, Chunk{
+				Content: match[1],
+				Meta:    map[string]string{},
+			})
 		}
 	}
 
 	if len(chunks) == 0 && len(text) > 0 {
-		return []string{text}
+		return []Chunk{{Content: text, Meta: map[string]string{}}}
 	}
 
 	return chunks

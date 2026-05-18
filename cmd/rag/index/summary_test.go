@@ -51,8 +51,18 @@ func TestExtractChunks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractChunks(tt.text)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("extractChunks() = %v, want %v", got, tt.want)
+
+			gotContent := make([]string, len(got))
+			for i, c := range got {
+				gotContent[i] = c.Content
+			}
+
+			if tt.want == nil && len(gotContent) == 0 {
+				return
+			}
+
+			if !reflect.DeepEqual(gotContent, tt.want) {
+				t.Errorf("extractChunks() = %v, want %v", gotContent, tt.want)
 			}
 		})
 	}

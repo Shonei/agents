@@ -35,7 +35,7 @@ func TestAuditStorage(t *testing.T) {
 		hash := "hash-1"
 		prompt := "system prompt"
 
-		err := store.SaveSession(id, hash, prompt)
+		err := store.SaveSession(id, hash, prompt, "")
 		require.NoError(t, err)
 
 		// Verify session was saved

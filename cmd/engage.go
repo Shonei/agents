@@ -74,7 +74,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 	if agent.IsRouter() {
 		chatter = a.buildRouter(agentName, agent, auditLogger)
 	} else {
-		chatter = a.buildAgent(agent, auditLogger, false)
+		chatter = a.buildAgent(agent, auditLogger, false, 0, "")
 	}
 
 	response, err := chatter.Chat(a.prompt)
@@ -89,7 +89,7 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 // When silentPrompt is true the system prompt is set without registering
 // a new audit user session — used for sub-agents owned by a router so
 // the whole router conversation lives in a single audit session.
-func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silentPrompt bool) *sdk.AI {
+func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silentPrompt bool, depth int, parentSessionID string) *sdk.AI {
 	if !strings.Contains(strings.ToLower(agent.Model), "gemini") {
 		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
 	}
@@ -119,9 +119,15 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 		opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
 	}
 
-	aiSDK := sdk.NewAI(gemini.NewAgent(opts...), audit.NewAudit(auditLogger))
+	aiAudit := audit.NewAudit(auditLogger)
+	aiSDK := sdk.NewAI(gemini.NewAgent(opts...), aiAudit)
 	aiSDK.SetHideThinking(a.configFactory.Config.HideThinking)
 	aiSDK.SetHideGrounding(a.configFactory.Config.HideGrounding)
+
+	// If this is a sub-agent, set it to quiet mode to suppress terminal output
+	if depth > 0 {
+		aiSDK.SetQuiet(true)
+	}
 
 	for _, toolName := range agent.Tools {
 		if toolName.Config == nil {
@@ -130,6 +136,11 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 
 		if tool := findAITool(toolName.Name); tool != nil {
 			tool.Init(toolName.Config, a.configFactory)
+
+			if awareTool, ok := tool.(sdk.AuditAwareTool); ok {
+				awareTool.SetAudit(aiAudit.SessionID())
+			}
+
 			aiSDK.RegisterTool(tool)
 
 			continue
@@ -138,6 +149,33 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 		if st := findServerTool(toolName.Name); st != nil {
 			st.Init(toolName.Config, a.configFactory)
 			aiSDK.RegisterServerTool(st)
+
+			continue
+		}
+
+		// Check if the tool is another agent
+		if subAgentConfig := a.configFactory.GetAgent(toolName.Name); subAgentConfig.Model != "" {
+			if depth >= 3 {
+				fmt.Printf("Warning: Skipping agent tool '%s' to prevent excessive recursion (depth >= 3)\n", toolName.Name)
+
+				continue
+			}
+
+			// Create a new logger for the sub-agent so it gets its own session
+			subLogger := a.createLogger()
+			subAgent := a.buildAgent(subAgentConfig, subLogger, false, depth+1, aiAudit.SessionID())
+
+			agentTool := &agentTool{
+				agent:       subAgent,
+				name:        toolName.Name,
+				description: subAgentConfig.Description,
+			}
+
+			if agentTool.description == "" {
+				agentTool.description = fmt.Sprintf("An AI agent specialized in %s", toolName.Name)
+			}
+
+			aiSDK.RegisterTool(agentTool)
 
 			continue
 		}
@@ -154,7 +192,8 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 		if silentPrompt {
 			aiSDK.SetSystemPromptSilent(rendered)
 		} else {
-			aiSDK.SetSystemPrompt(rendered)
+			aiAudit.User(rendered, parentSessionID)
+			aiSDK.SetSystemPromptSilent(rendered)
 		}
 	}
 
@@ -169,7 +208,7 @@ func (a *engage) buildRouter(name string, agent config.Agent, auditLogger audit.
 
 	for _, route := range agent.Routes {
 		sub := a.configFactory.GetAgent(route.Agent)
-		routes[route.Agent] = a.buildAgent(sub, auditLogger, true)
+		routes[route.Agent] = a.buildAgent(sub, auditLogger, true, 0, "")
 	}
 
 	meta := make([]sdk.RouteMeta, 0, len(agent.Routes))
@@ -183,7 +222,7 @@ func (a *engage) buildRouter(name string, agent config.Agent, auditLogger audit.
 	)
 
 	routerAudit := audit.NewAudit(auditLogger)
-	routerAudit.User(sdk.SynthesizeRouterPrompt(name, meta, routes, agent.Classifier.Model))
+	routerAudit.User(sdk.SynthesizeRouterPrompt(name, meta, routes, agent.Classifier.Model), "")
 
 	return sdk.NewRouterAI(
 		name,

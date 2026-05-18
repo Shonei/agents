@@ -29,6 +29,8 @@ type AI struct {
 	lastInputTokens int
 	hideThinking    bool
 	hideGrounding   bool
+	quiet           bool
+	maxTurns        int
 }
 
 type AITool interface {
@@ -37,6 +39,12 @@ type AITool interface {
 	Init(config map[string]string, configFactory *config.ConfigFactory)
 	InputSchema() map[string]interface{}
 	Call(input map[string]interface{}) (interface{}, error)
+}
+
+// AuditAwareTool is an optional interface for tools that need to log events
+// to the same audit session as their parent agent.
+type AuditAwareTool interface {
+	SetAudit(parentSessionID string)
 }
 
 // ServerSideTool is a tool that is executed by the model provider rather than
@@ -50,8 +58,9 @@ type ServerSideTool interface {
 
 func NewAI(agent Agent, audit *audit.Audit) *AI {
 	return &AI{
-		agent: agent,
-		audit: audit,
+		agent:    agent,
+		audit:    audit,
+		maxTurns: 30, // Default max turns to prevent infinite loops
 	}
 }
 
@@ -71,8 +80,16 @@ func (a *AI) SetHideGrounding(hide bool) {
 	a.hideGrounding = hide
 }
 
+func (a *AI) SetQuiet(quiet bool) {
+	a.quiet = quiet
+}
+
+func (a *AI) SetMaxTurns(turns int) {
+	a.maxTurns = turns
+}
+
 func (a *AI) SetSystemPrompt(prompt string) {
-	a.audit.User(prompt)
+	a.audit.User(prompt, "")
 
 	a.systemPrompt = prompt
 }
@@ -84,6 +101,13 @@ func (a *AI) SetSystemPrompt(prompt string) {
 // session).
 func (a *AI) SetSystemPromptSilent(prompt string) {
 	a.systemPrompt = prompt
+}
+
+// SystemPrompt returns the agent's currently configured system prompt.
+// Used by composite agents (e.g. RouterAI) to capture the incoming
+// sub-agent's prompt in the audit trail when control changes hands.
+func (a *AI) SystemPrompt() string {
+	return a.systemPrompt
 }
 
 // Audit exposes the underlying audit handle so composite agents (e.g.
@@ -174,10 +198,23 @@ func (a *AI) RunOnce(prompt string) (string, error) {
 		return v, nil
 	case []ContentBlock:
 		var b strings.Builder
+		var images []string
 		for _, block := range v {
 			if block.Type == ContentTypeText {
 				b.WriteString(block.Text)
+			} else if block.Type == ContentTypeImage && block.FilePath != "" {
+				images = append(images, block.FilePath)
 			}
+		}
+
+		if len(images) > 0 {
+			result := map[string]interface{}{
+				"text":   b.String(),
+				"images": images,
+			}
+			jsonBytes, _ := json.Marshal(result)
+
+			return string(jsonBytes), nil
 		}
 
 		return b.String(), nil
@@ -202,9 +239,15 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 	}
 
 	messages := history
+	turnCount := 0
 
 	// Loop until we get a response without tool calls
 	for {
+		if turnCount >= a.maxTurns {
+			return nil, fmt.Errorf("max turns (%d) reached", a.maxTurns)
+		}
+		turnCount++
+
 		compacted, err := a.maybeCompact(&messages)
 		if err != nil {
 			return nil, err
@@ -229,7 +272,9 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 
 		a.lastInputTokens = response.Usage.InputTokens
 
-		fmt.Printf("Usage: %d input tokens, %d output tokens\n", response.Usage.InputTokens, response.Usage.OutputTokens)
+		if !a.quiet {
+			fmt.Printf("Usage: %d input tokens, %d output tokens\n", response.Usage.InputTokens, response.Usage.OutputTokens)
+		}
 
 		hasToolCalls := false
 
@@ -255,8 +300,8 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 				// added to the assistant content we replay to the model
 				// and never triggers a tool-result follow-up.
 				a.audit.LogEvent(audit.Event{
-					Type:             audit.GroundingEvent,
-					FunctionResponse: block.Grounding,
+					Type:      audit.GroundingEvent,
+					Grounding: block.Grounding,
 				})
 
 				continue
@@ -287,7 +332,7 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 		// Print non-tool-use blocks
 		for _, block := range response.Content {
 			if block.Type == ContentTypeThinking {
-				if !a.hideThinking {
+				if !a.hideThinking && !a.quiet {
 					color.New(color.FgHiBlue, color.Italic).Print("Thinking: ")
 					// Render markdown
 					out, err := glamour.Render(block.Text, "dark")
@@ -323,28 +368,40 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 
 				// Write the image to a file
 				fileName := fmt.Sprintf("image_%s.%s", randSuffix, imageFormat)
+				filePath := filepath.Join(cwd, fileName)
 
-				err = os.WriteFile(filepath.Join(cwd, fileName), imageBytes, 0o600)
+				err = os.WriteFile(filePath, imageBytes, 0o600)
 				if err != nil {
 					utils.NewExitError().WithMessage("failed to write image to file").WithReason(err).Done()
 				}
 
-				color.New(color.FgBlue, color.Bold).Print("CLI:\n")
-				fmt.Printf("\tImage saved to %s\n", fileName)
+				if !a.quiet {
+					color.New(color.FgBlue, color.Bold).Print("CLI:\n")
+					fmt.Printf("\tImage saved to %s\n", fileName)
+				}
+
+				// Update the assistant content block with the file path
+				for i, c := range assistantContent {
+					if c.Type == ContentTypeImage && c.Source != nil && c.Source.Data == block.Blob.Data {
+						assistantContent[i].FilePath = filePath
+					}
+				}
 
 				continue
 			}
 
 			if block.Type == ContentTypeText {
-				color.New(color.FgBlue, color.Bold).Print("Assistant: ")
+				if !a.quiet {
+					color.New(color.FgBlue, color.Bold).Print("Assistant: ")
 
-				// Render markdown
-				out, err := glamour.Render(block.Text, "dark")
-				if err != nil {
-					// Fallback to plain text if rendering fails
-					fmt.Println(block.Text)
-				} else {
-					fmt.Print(out)
+					// Render markdown
+					out, err := glamour.Render(block.Text, "dark")
+					if err != nil {
+						// Fallback to plain text if rendering fails
+						fmt.Println(block.Text)
+					} else {
+						fmt.Print(out)
+					}
 				}
 
 				continue
@@ -513,7 +570,8 @@ type routeSelectionAudit struct {
 }
 
 type handoffAudit struct {
-	From    string `json:"from"`
-	To      string `json:"to"`
-	Summary string `json:"summary"`
+	From         string `json:"from"`
+	To           string `json:"to"`
+	Summary      string `json:"summary"`
+	SystemPrompt string `json:"system_prompt,omitempty"`
 }

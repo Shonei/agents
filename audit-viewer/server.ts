@@ -180,6 +180,10 @@ const server = Bun.serve({
                 event.function_response = payload;
               else if (row.type === "initial_message")
                 event.initial_message = payload;
+              else if (row.type === "route_selection")
+                event.route_selection = payload;
+              else if (row.type === "handoff") event.handoff = payload;
+              else if (row.type === "grounding") event.grounding = payload;
             }
 
             responseLines.push(event);

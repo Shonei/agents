@@ -49,14 +49,17 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) SaveSession(id string, hash string, prompt string) error {
-	_, err := s.goquDB.Insert("audit_sessions").Rows(
-		goqu.Record{
-			"id":            id,
-			"session_hash":  hash,
-			"system_prompt": prompt,
-		},
-	).Executor().Exec()
+func (s *Storage) SaveSession(id string, hash string, prompt string, parentSessionID string) error {
+	record := goqu.Record{
+		"id":            id,
+		"session_hash":  hash,
+		"system_prompt": prompt,
+	}
+	if parentSessionID != "" {
+		record["parent_session_id"] = parentSessionID
+	}
+
+	_, err := s.goquDB.Insert("audit_sessions").Rows(record).Executor().Exec()
 
 	return err
 }

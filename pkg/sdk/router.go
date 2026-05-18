@@ -200,7 +200,7 @@ func (r *RouterAI) handleTurn(userMsg string) error {
 	})
 
 	if pick.Confidence >= r.threshold && pick.Route != r.current {
-		if err := r.handoff(pick.Route); err != nil {
+		if err := r.handoff(pick); err != nil {
 			return err
 		}
 	}
@@ -225,13 +225,20 @@ func (r *RouterAI) handleTurn(userMsg string) error {
 // handoff summarizes the working history via the outgoing sub-agent and
 // replaces the working history with a single synthetic user message
 // carrying that summary. The user's actual new message is appended by
-// handleTurn after this returns.
-func (r *RouterAI) handoff(toRoute string) error {
+// handleTurn after this returns. The pick is threaded through purely so
+// the on-terminal log can show the classifier's reason for the switch.
+func (r *RouterAI) handoff(pick RouteSelection) error {
 	from := r.current
+	toRoute := pick.Route
 
 	prev, ok := r.routes[from]
 	if !ok {
 		return fmt.Errorf("router %q: outgoing route %q is not registered", r.name, from)
+	}
+
+	next, ok := r.routes[toRoute]
+	if !ok {
+		return fmt.Errorf("router %q: incoming route %q is not registered", r.name, toRoute)
 	}
 
 	summary := ""
@@ -244,14 +251,15 @@ func (r *RouterAI) handoff(toRoute string) error {
 		summary = s
 	}
 
-	color.New(color.FgYellow, color.Bold).Printf("Handoff: %s -> %s\n", from, toRoute)
+	logHandoff(from, toRoute, pick)
 
 	r.audit.LogEvent(audit.Event{
 		Type: audit.HandoffEvent,
 		Handoff: handoffAudit{
-			From:    from,
-			To:      toRoute,
-			Summary: summary,
+			From:         from,
+			To:           toRoute,
+			Summary:      summary,
+			SystemPrompt: next.SystemPrompt(),
 		},
 	})
 
@@ -266,4 +274,20 @@ func (r *RouterAI) handoff(toRoute string) error {
 	r.current = toRoute
 
 	return nil
+}
+
+// logHandoff prints a one-line, human-readable record of a route switch.
+// The full structured record (including the generated summary) still
+// lands in the audit log via HandoffEvent; this is purely for the user
+// running the CLI to see what just happened and why.
+func logHandoff(from, to string, pick RouteSelection) {
+	reason := strings.TrimSpace(pick.Reason)
+	if reason == "" {
+		color.New(color.FgYellow, color.Bold).Printf("Handoff: %s -> %s (confidence %.2f)\n", from, to, pick.Confidence)
+
+		return
+	}
+
+	color.New(color.FgYellow, color.Bold).Printf("Handoff: %s -> %s (confidence %.2f) -- %s\n",
+		from, to, pick.Confidence, reason)
 }

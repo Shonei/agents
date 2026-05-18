@@ -24,6 +24,25 @@ interface AuditMessage {
     name: string;
     response: string;
   };
+  route_selection?: {
+    route: string;
+    confidence: number;
+    reason: string;
+    latency_ms: number;
+  };
+  handoff?: {
+    from: string;
+    to: string;
+    summary: string;
+    system_prompt?: string;
+  };
+  grounding?: GroundingMetadata;
+}
+
+interface GroundingMetadata {
+  web_search_queries?: string[];
+  sources?: { title?: string; uri?: string; snippet?: string }[];
+  retrieved_urls?: { url: string; status?: string }[];
 }
 
 // Parsed structure for tool responses
@@ -171,6 +190,32 @@ function MessageBlock({ message, index }: { message: AuditMessage; index: number
     return <FunctionResponseBlock functionResponse={message.function_response} />;
   }
 
+  // Route selection (router classifier decision)
+  if (message.type === "route_selection" && message.route_selection) {
+    return <RouteSelectionBlock routeSelection={message.route_selection} />;
+  }
+
+  // Handoff (router switches active sub-agent)
+  if (message.type === "handoff" && message.handoff) {
+    return <HandoffBlock handoff={message.handoff} />;
+  }
+
+  // Compaction (conversation history summarized to fit context window)
+  if (message.type === "compaction") {
+    return <CompactionBlock summary={message.content || ""} />;
+  }
+
+  // Grounding (server-side tool activity, e.g. google_search / url_context).
+  // Newer audits store the payload on `grounding`; older file-mode audits
+  // had it shoehorned into `function_response`.
+  if (message.type === "grounding") {
+    const meta =
+      message.grounding ?? (message.function_response as unknown as GroundingMetadata | undefined);
+    if (meta) {
+      return <GroundingBlock grounding={meta} />;
+    }
+  }
+
   // Fallback for unknown message types
   return (
     <div className="message-block">
@@ -261,6 +306,268 @@ function FunctionResponseBlock({
       {!collapsed && (
         <div className="message-content">
           <ResponseContent parsed={parsed} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RouteSelectionBlock({
+  routeSelection,
+}: {
+  routeSelection: {
+    route: string;
+    confidence: number;
+    reason: string;
+    latency_ms: number;
+  };
+}) {
+  const confidencePct = (routeSelection.confidence * 100).toFixed(1);
+  const confidenceClass =
+    routeSelection.confidence >= 0.75
+      ? "high"
+      : routeSelection.confidence >= 0.4
+        ? "medium"
+        : "low";
+
+  return (
+    <div className="message-block route-selection">
+      <div className="message-type">
+        <span className="tool-icon">🧭</span>
+        <span>
+          Route Selection: <strong>{routeSelection.route}</strong>
+        </span>
+        <span className="response-meta">{routeSelection.latency_ms} ms</span>
+      </div>
+      <div className="message-content">
+        <div className="response-metadata">
+          <div className="metadata-item">
+            <span className="metadata-key">Route:</span>
+            <code className="metadata-value">{routeSelection.route}</code>
+          </div>
+          <div className="metadata-item">
+            <span className="metadata-key">Confidence:</span>
+            <code className={`metadata-value confidence-${confidenceClass}`}>
+              {confidencePct}%
+            </code>
+          </div>
+          <div className="metadata-item">
+            <span className="metadata-key">Latency:</span>
+            <code className="metadata-value">{routeSelection.latency_ms} ms</code>
+          </div>
+          {routeSelection.reason && (
+            <div className="metadata-item reason">
+              <span className="metadata-key">Reason:</span>
+              <span className="metadata-reason">{routeSelection.reason}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HandoffBlock({
+  handoff,
+}: {
+  handoff: {
+    from: string;
+    to: string;
+    summary: string;
+    system_prompt?: string;
+  };
+}) {
+  const [promptCollapsed, setPromptCollapsed] = useState(true);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
+
+  return (
+    <div className="message-block handoff">
+      <div className="message-type">
+        <span className="tool-icon">🤝</span>
+        <span>
+          Handoff: <strong>{handoff.from}</strong>{" "}
+          <span className="handoff-arrow">→</span>{" "}
+          <strong>{handoff.to}</strong>
+        </span>
+      </div>
+      <div className="message-content">
+        {handoff.system_prompt && (
+          <div className="handoff-section">
+            <div className="handoff-section-header">
+              <span className="code-label">
+                System Prompt for <code>{handoff.to}</code>
+              </span>
+              <button
+                className="collapse-btn"
+                onClick={() => setPromptCollapsed(!promptCollapsed)}
+              >
+                {promptCollapsed ? "▶ Show" : "▼ Hide"}
+              </button>
+            </div>
+            {!promptCollapsed && (
+              <div className="markdown handoff-prompt">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {handoff.system_prompt}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+        )}
+
+        {handoff.summary && (
+          <div className="handoff-section">
+            <div className="handoff-section-header">
+              <span className="code-label">Handoff Summary</span>
+              <button
+                className="collapse-btn"
+                onClick={() => setSummaryCollapsed(!summaryCollapsed)}
+              >
+                {summaryCollapsed ? "▶ Show" : "▼ Hide"}
+              </button>
+            </div>
+            {!summaryCollapsed && (
+              <div className="markdown handoff-summary">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {handoff.summary}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompactionBlock({ summary }: { summary: string }) {
+  const [collapsed, setCollapsed] = useState(true);
+  const lineCount = summary.split("\n").length;
+  const byteSize = new Blob([summary]).size;
+
+  return (
+    <div className="message-block compaction">
+      <div className="function-header">
+        <div className="message-type">
+          <span className="tool-icon">🗜️</span>
+          <span>Conversation Compacted</span>
+          <span className="response-meta">
+            {lineCount} {lineCount === 1 ? "line" : "lines"} • {formatBytes(byteSize)}
+          </span>
+        </div>
+        <button
+          className="collapse-btn"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? "▶ Show summary" : "▼ Hide summary"}
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="message-content markdown">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{summary}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroundingBlock({ grounding }: { grounding: GroundingMetadata }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const queries = grounding.web_search_queries ?? [];
+  const sources = grounding.sources ?? [];
+  const retrieved = grounding.retrieved_urls ?? [];
+  const totalRefs = sources.length + retrieved.length;
+
+  return (
+    <div className="message-block grounding">
+      <div className="function-header">
+        <div className="message-type">
+          <span className="tool-icon">🌐</span>
+          <span>Grounding</span>
+          <span className="response-meta">
+            {queries.length} {queries.length === 1 ? "query" : "queries"} •{" "}
+            {totalRefs} {totalRefs === 1 ? "reference" : "references"}
+          </span>
+        </div>
+        <button
+          className="collapse-btn"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? "▶ Show" : "▼ Hide"}
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="message-content">
+          {queries.length > 0 && (
+            <div className="grounding-section">
+              <div className="grounding-section-label">Search queries</div>
+              <ul className="grounding-queries">
+                {queries.map((q, i) => (
+                  <li key={i}>
+                    <code>{q}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {sources.length > 0 && (
+            <div className="grounding-section">
+              <div className="grounding-section-label">Sources</div>
+              <ul className="grounding-sources">
+                {sources.map((s, i) => (
+                  <li key={i} className="grounding-source">
+                    {s.uri ? (
+                      <a
+                        href={s.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="grounding-source-title"
+                      >
+                        {s.title || s.uri}
+                      </a>
+                    ) : (
+                      <span className="grounding-source-title">
+                        {s.title || "(untitled)"}
+                      </span>
+                    )}
+                    {s.snippet && (
+                      <div className="grounding-source-snippet">{s.snippet}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {retrieved.length > 0 && (
+            <div className="grounding-section">
+              <div className="grounding-section-label">Retrieved URLs</div>
+              <ul className="grounding-sources">
+                {retrieved.map((r, i) => (
+                  <li key={i} className="grounding-source">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="grounding-source-title"
+                    >
+                      {r.url}
+                    </a>
+                    {r.status && (
+                      <span className={`grounding-status status-${r.status.toLowerCase()}`}>
+                        {r.status}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {queries.length === 0 &&
+            sources.length === 0 &&
+            retrieved.length === 0 && (
+              <div className="grounding-empty">
+                No grounding metadata was reported.
+              </div>
+            )}
         </div>
       )}
     </div>

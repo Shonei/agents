@@ -129,6 +129,186 @@
       background: #19312b;
     }
 
+    .message-block.route-selection {
+      border-left-color: #4ac9c9;
+      background: #19292b;
+    }
+
+    .message-block.handoff {
+      border-left-color: #c9a44a;
+      background: #2b2519;
+    }
+
+    .message-block.compaction {
+      border-left-color: #a67ac9;
+      background: #221a2b;
+    }
+
+    .message-block.grounding {
+      border-left-color: #6ba3ff;
+      background: #19222e;
+    }
+
+    .grounding-section {
+      margin-top: 14px;
+    }
+
+    .grounding-section:first-child {
+      margin-top: 0;
+    }
+
+    .grounding-section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+
+    .grounding-queries {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-left: 0;
+    }
+
+    .grounding-queries li {
+      margin: 0;
+    }
+
+    .grounding-queries code {
+      background: rgba(107, 163, 255, 0.12);
+      color: #6ba3ff;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid rgba(107, 163, 255, 0.3);
+    }
+
+    .grounding-sources {
+      list-style: none;
+      margin-left: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .grounding-source {
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .grounding-source-title {
+      font-size: 13px;
+      color: #6ba3ff;
+      font-weight: 500;
+      text-decoration: none;
+      word-break: break-word;
+    }
+
+    .grounding-source-title:hover {
+      text-decoration: underline;
+    }
+
+    .grounding-source-snippet {
+      font-size: 12px;
+      color: #b0b0b0;
+      line-height: 1.5;
+    }
+
+    .grounding-status {
+      align-self: flex-start;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #c0c0c0;
+    }
+
+    .grounding-status.status-success,
+    .grounding-status.status-ok {
+      background: rgba(110, 231, 160, 0.15);
+      color: #6ee7a0;
+    }
+
+    .grounding-status.status-error,
+    .grounding-status.status-failed {
+      background: rgba(231, 110, 110, 0.15);
+      color: #e76e6e;
+    }
+
+    .grounding-empty {
+      color: #888;
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    .handoff-arrow {
+      color: #c9a44a;
+      font-weight: 700;
+      margin: 0 4px;
+    }
+
+    .handoff-section {
+      margin-top: 12px;
+    }
+
+    .handoff-section:first-child {
+      margin-top: 0;
+    }
+
+    .handoff-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px 6px 0 0;
+    }
+
+    .handoff-prompt,
+    .handoff-summary {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+    }
+
+    .metadata-item.reason {
+      align-items: flex-start;
+    }
+
+    .metadata-reason {
+      font-size: 13px;
+      color: #d0d0d0;
+      flex: 1;
+      line-height: 1.5;
+    }
+
+    .confidence-high {
+      color: #6ee7a0 !important;
+    }
+
+    .confidence-medium {
+      color: #e7c46e !important;
+    }
+
+    .confidence-low {
+      color: #e76e6e !important;
+    }
+
     .message-type {
       font-size: 11px;
       text-transform: uppercase;

@@ -27,8 +27,9 @@ type InputMessage struct {
 type ContentBlock struct {
 	Type string `json:"type"`
 
-	Text   string `json:"text,omitempty"`
-	Source *Blob  `json:"source,omitempty"`
+	Text     string `json:"text,omitempty"`
+	FilePath string `json:"file_path,omitempty"`
+	Source   *Blob  `json:"source,omitempty"`
 
 	ID    string                 `json:"id,omitempty"`
 	Name  string                 `json:"name,omitempty"`

@@ -68,6 +68,14 @@ var registeredMigrations = []migrations{
 			return err
 		},
 	},
+	{
+		name: "add_parent_session_id_to_audit_sessions",
+		run: func(db *goqu.Database) error {
+			_, err := db.Exec(`ALTER TABLE audit_sessions ADD COLUMN parent_session_id TEXT;`)
+
+			return err
+		},
+	},
 }
 
 func initDatabase(db *goqu.Database) error {

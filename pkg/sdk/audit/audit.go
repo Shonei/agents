@@ -29,10 +29,11 @@ const (
 type Logger interface {
 	LogEvent(event Event)
 	LogUser(user User)
+	SessionID() string
 }
 
 type AuditStore interface {
-	SaveSession(id string, hash string, prompt string) error
+	SaveSession(id string, hash string, prompt string, parentSessionID string) error
 	SaveEvent(id string, sessionID string, eventType string, content string, payload []byte) error
 }
 
@@ -48,11 +49,13 @@ type Event struct {
 	InitialMessage   any    `json:"initial_message,omitempty"`
 	RouteSelection   any    `json:"route_selection,omitempty"`
 	Handoff          any    `json:"handoff,omitempty"`
+	Grounding        any    `json:"grounding,omitempty"`
 }
 
 type User struct {
-	ID           string `json:"id"`
-	SystemPrompt string `json:"system_prompt"`
+	ID              string `json:"id"`
+	SystemPrompt    string `json:"system_prompt"`
+	ParentSessionID string `json:"parent_session_id,omitempty"`
 }
 
 type AuditConfig struct {
@@ -71,9 +74,14 @@ func (a *Audit) LogEvent(event Event) {
 	a.logger.LogEvent(event)
 }
 
-func (a *Audit) User(p string) {
+func (a *Audit) SessionID() string {
+	return a.logger.SessionID()
+}
+
+func (a *Audit) User(p string, parentSessionID string) {
 	user := User{
-		SystemPrompt: p,
+		SystemPrompt:    p,
+		ParentSessionID: parentSessionID,
 	}
 
 	idHash := sha256.New()
@@ -101,6 +109,11 @@ func NewFileLogger(path string) (Logger, error) {
 type fileLogger struct {
 	path      string
 	auditName string
+	sessionID string
+}
+
+func (f *fileLogger) SessionID() string {
+	return f.sessionID
 }
 
 func (f *fileLogger) LogEvent(event Event) {
@@ -115,7 +128,8 @@ func (f *fileLogger) LogEvent(event Event) {
 func (f *fileLogger) LogUser(user User) {
 	salt := time.Now().Unix()
 
-	f.auditName = fmt.Sprintf("%s_%d.json", user.ID, salt)
+	f.sessionID = fmt.Sprintf("%s_%d", user.ID, salt)
+	f.auditName = fmt.Sprintf("%s.json", f.sessionID)
 
 	b, err := json.Marshal(user)
 	if err != nil {
@@ -160,6 +174,10 @@ func (a *noopAudit) LogEvent(event Event) {
 func (a *noopAudit) LogUser(user User) {
 }
 
+func (a *noopAudit) SessionID() string {
+	return ""
+}
+
 func NewDBLogger(store AuditStore) Logger {
 	return &dbLogger{
 		store: store,
@@ -169,6 +187,10 @@ func NewDBLogger(store AuditStore) Logger {
 type dbLogger struct {
 	store     AuditStore
 	sessionID string
+}
+
+func (d *dbLogger) SessionID() string {
+	return d.sessionID
 }
 
 func (d *dbLogger) LogEvent(event Event) {
@@ -188,6 +210,8 @@ func (d *dbLogger) LogEvent(event Event) {
 		payload = event.RouteSelection
 	case event.Handoff != nil:
 		payload = event.Handoff
+	case event.Grounding != nil:
+		payload = event.Grounding
 	}
 
 	b, _ := json.Marshal(payload)
@@ -200,5 +224,5 @@ func (d *dbLogger) LogUser(user User) {
 	salt := time.Now().UnixNano()
 	d.sessionID = fmt.Sprintf("%s_%d", user.ID, salt)
 
-	_ = d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt)
+	_ = d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt, user.ParentSessionID)
 }

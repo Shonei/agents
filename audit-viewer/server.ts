@@ -220,7 +220,8 @@ const server = Bun.serve({
                 event.route_selection = payload;
               else if (row.type === "handoff") event.handoff = payload;
               else if (row.type === "grounding") event.grounding = payload;
-                else if (row.type === "plan") event.plan = payload;
+              else if (row.type === "plan") event.plan = payload;
+              else if (row.type === "todo") event.todo = payload;
             }
 
             responseLines.push(event);

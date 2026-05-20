@@ -16,7 +16,17 @@ type ViewFileTool struct{}
 func (t *ViewFileTool) Name() string { return "view_file" }
 
 func (t *ViewFileTool) Description() string {
-	return "Reads a file and returns its contents with stable line numbers in `N|content` format, designed for citing locations (e.g. `path/to/file.go:42`). Prefer this over `bash cat`/`head`/`tail` for any file you'll want to reference later — `cat` has no line numbers, no range support, and no truncation cap for huge files. Optional `offset` (1-based start line) and `limit` (max lines to read) for viewing slices; rejects binary files. Use `list_dir` for directories."
+	return "Reads a file from the local filesystem.\n" +
+		"\n" +
+		"Usage:\n" +
+		"- You can optionally specify `offset` and `limit` (handy for long files), but it's recommended to read the whole file by not providing these parameters.\n" +
+		"- Lines in the output are numbered starting at 1, using the following format: LINE_NUMBER|LINE_CONTENT.\n" +
+		"- You have the capability to call multiple tools in a single response. It is always better to speculatively read multiple files as a batch that are potentially useful.\n" +
+		"- If you only need a slice (e.g. after `rg -n` or `grep -n` returns a line number), use `offset` and `limit` to read around it — not `sed -n 'N,Mp'`.\n" +
+		"- If the file is binary, an error will be returned.\n" +
+		"- If the file is larger than 10000 lines and no slice is requested, the output is truncated to the first 10000 lines with a warning.\n" +
+		"- If you read a file that exists but has empty contents, you will receive a single-line header indicating the file is empty.\n" +
+		"- For directories, use `list_dir`."
 }
 
 func (t *ViewFileTool) Init(_ map[string]string, _ *config.ConfigFactory) {
@@ -33,11 +43,11 @@ func (t *ViewFileTool) InputSchema() map[string]interface{} {
 			},
 			"offset": map[string]interface{}{
 				"type":        "integer",
-				"description": "Optional 1-based line number to start reading from. Default 1 (start of file).",
+				"description": "The line number to start reading from (1-indexed). Only provide if the file is too large to read at once, or if you only need a slice.",
 			},
 			"limit": map[string]interface{}{
 				"type":        "integer",
-				"description": "Optional number of lines to read starting from `offset`. Default: read to end of file (subject to a built-in cap on very large files).",
+				"description": "The number of lines to read. Only provide if the file is too large to read at once, or if you only need a slice.",
 			},
 		},
 		"required": []interface{}{"path"},

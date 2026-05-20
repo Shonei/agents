@@ -480,6 +480,13 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 				}
 			}
 
+			if tool.Name() == "todo" {
+				a.audit.LogEvent(audit.Event{
+					Type: audit.TodoEvent,
+					Todo: GlobalTodo.GetTasks(),
+				})
+			}
+
 			// Convert result to JSON string for API compatibility
 			// The Anthropic API requires tool result content to be a string or array of content blocks
 			var resultContent string

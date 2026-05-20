@@ -25,6 +25,7 @@ const (
 	RouteSelectionEvent   = "route_selection"
 	HandoffEvent          = "handoff"
 	PlanEvent             = "plan"
+	TodoEvent             = "todo"
 )
 
 type Logger interface {
@@ -52,6 +53,7 @@ type Event struct {
 	Handoff          any    `json:"handoff,omitempty"`
 	Grounding        any    `json:"grounding,omitempty"`
 	Plan             any    `json:"plan,omitempty"`
+	Todo             any    `json:"todo,omitempty"`
 }
 
 type User struct {
@@ -216,6 +218,8 @@ func (d *dbLogger) LogEvent(event Event) {
 		payload = event.Grounding
 	case event.Plan != nil:
 		payload = event.Plan
+	case event.Todo != nil:
+		payload = event.Todo
 	}
 
 	b, _ := json.Marshal(payload)

@@ -48,6 +48,11 @@ interface AuditMessage {
       status: string;
     }[];
   };
+  todo?: {
+    ID: string;
+    Description: string;
+    Status: string;
+  }[];
 }
 
 interface GroundingMetadata {
@@ -281,6 +286,11 @@ function MessageBlock({ message, index }: { message: AuditMessage; index: number
   // Plan
   if (message.type === "plan" && message.plan) {
     return <PlanBlock plan={message.plan} />;
+  }
+
+  // Todo
+  if (message.type === "todo" && message.todo) {
+    return <TodoBlock todo={message.todo} />;
   }
 
   // had it shoehorned into `function_response`.
@@ -827,6 +837,40 @@ function PlanBlock({ plan }: { plan: NonNullable<AuditMessage["plan"]> }) {
                       <span className="step-id">[{step.id}]</span>
                       <span className="step-status">[{step.status}]</span>
                       <span className="step-description">{step.description}</span>
+                    </li>
+                ))}
+              </ul>
+            </div>
+        )}
+      </div>
+  );
+}
+
+function TodoBlock({ todo }: { todo: NonNullable<AuditMessage["todo"]> }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+      <div className="message-block plan">
+        <div className="function-header">
+          <div className="message-type">
+            <span className="tool-icon">📝</span>
+            <span>Todo List</span>
+          </div>
+          <button
+              className="collapse-btn"
+              onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? "▶ Show" : "▼ Hide"}
+          </button>
+        </div>
+        {!collapsed && (
+            <div className="message-content">
+              <ul className="plan-steps">
+                {todo.map((task) => (
+                    <li key={task.ID} className={`plan-step status-${task.Status}`}>
+                      <span className="step-id">[{task.ID}]</span>
+                      <span className="step-status">[{task.Status}]</span>
+                      <span className="step-description">{task.Description}</span>
                     </li>
                 ))}
               </ul>

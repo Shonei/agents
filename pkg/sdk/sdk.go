@@ -44,7 +44,26 @@ type AITool interface {
 // AuditAwareTool is an optional interface for tools that need to log events
 // to the same audit session as their parent agent.
 type AuditAwareTool interface {
-	SetAudit(parentSessionID string)
+	SetAudit(audit *audit.Audit)
+}
+
+// PlanAwareTool is an optional interface for tools that need to share the
+// same plan state across multiple agents.
+type PlanAwareTool interface {
+	SetPlanState(state *PlanState)
+}
+
+// TodoAwareTool is an optional interface for tools that need to share the
+// same todo state across multiple agents.
+type TodoAwareTool interface {
+	SetTodoState(state *TodoState)
+}
+
+// TemplateContributor is an optional interface for tools that need to inject
+// state into the system prompt template.
+type TemplateContributor interface {
+	TemplateKey() string
+	TemplateData() any
 }
 
 // ServerSideTool is a tool that is executed by the model provider rather than
@@ -70,6 +89,10 @@ func (a *AI) RegisterTool(tool AITool) {
 
 func (a *AI) RegisterServerTool(tool ServerSideTool) {
 	a.serverTools = append(a.serverTools, tool)
+}
+
+func (a *AI) Tools() []AITool {
+	return a.tools
 }
 
 func (a *AI) SetHideThinking(hide bool) {
@@ -469,22 +492,6 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 				}
 
 				return nil, err
-			}
-
-			if tool.Name() == "plan" {
-				if snapshot := GlobalPlan.Snapshot(); snapshot != nil {
-					a.audit.LogEvent(audit.Event{
-						Type: audit.PlanEvent,
-						Plan: snapshot,
-					})
-				}
-			}
-
-			if tool.Name() == "todo" {
-				a.audit.LogEvent(audit.Event{
-					Type: audit.TodoEvent,
-					Todo: GlobalTodo.GetTasks(),
-				})
 			}
 
 			// Convert result to JSON string for API compatibility

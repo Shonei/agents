@@ -25,16 +25,24 @@ const (
 	// summarizer's own context budget.
 	maxEvictedBlockChars = 2000
 
-	summarizerSystemPrompt = `You are a conversation summarizer for an autonomous coding agent.
-Produce a concise but information-dense summary of the prior conversation.
-Preserve:
-- Decisions and conclusions reached
-- File paths read, written, or discussed
-- Tool calls made and their key outcomes (success/failure, what was produced)
-- Errors encountered and how they were addressed
-- Open questions or pending work
-Drop pleasantries, repeated context, and verbose tool output.
-Output plain text only. No markdown headings, no preamble.`
+	summarizerSystemPrompt = `You are compacting a coding-agent conversation. Your output REPLACES the prior messages: the same agent (or a peer agent with similar tools) will read it as its only memory of what happened and must be able to resume work without seeing the original. Write for that future agent, not for a human reviewer.
+
+Use these labeled sections, in this order. Omit a label only if it would be empty. No other headings, no preamble, no closing remarks.
+
+GOAL: The user's original request and any constraints they imposed (libraries to use or avoid, files off-limits, style or acceptance criteria). Quote constraints verbatim when wording matters.
+PROGRESS: What has been completed, in order, with the concrete artifact for each step (file path, symbol name, command, value). Mark anything still in flight as "in progress".
+FILES: Paths read, created, modified, or deleted, each with a one-phrase note on the change.
+KEY FINDINGS: Facts learned from tool output that future steps depend on — symbol locations, API shapes, schema fields, exact error messages, exit codes, configuration values. Preserve identifiers, numbers, paths, and error strings verbatim.
+DEAD ENDS: Approaches tried and abandoned, with the reason, so they are not retried.
+NEXT: The single most immediate action the agent should take, specific enough to act on without further inference. Then any other pending work.
+
+Rules:
+- Never invent facts. If a detail is not in the source, omit it rather than guess.
+- Preserve file paths, symbol names, command strings, and error messages byte-for-byte.
+- Lines prefixed with "(thinking)" are the prior agent's internal reasoning; use them to infer intent but do not treat them as ground truth.
+- Lines under a "TOOL_RESULT:" role are tool output, not user speech; attribute them accordingly.
+- Drop pleasantries, restated context, and prose around tool output; keep the load-bearing details inside it.
+- Target under ~600 words. If you must cut, cut from PROGRESS before GOAL or NEXT.`
 )
 
 // maybeCompact inspects the most recent input-token count against the agent's
@@ -169,12 +177,14 @@ func (a *AI) SummarizeMessages(toEvict []InputMessage) (string, error) {
 
 // serializeForSummary renders a slice of messages into a compact text form
 // suitable for feeding to the summarizer. Each block is truncated so a
-// single oversized tool result cannot dominate the prompt.
+// single oversized tool result cannot dominate the prompt. User messages
+// that carry only tool_result blocks are relabeled as TOOL_RESULT so the
+// summarizer does not mistake tool output for user speech.
 func serializeForSummary(messages []InputMessage) string {
 	var b strings.Builder
 
 	for _, msg := range messages {
-		b.WriteString(strings.ToUpper(msg.Role))
+		b.WriteString(roleLabel(msg))
 		b.WriteString(":\n")
 
 		switch v := msg.Content.(type) {
@@ -191,6 +201,31 @@ func serializeForSummary(messages []InputMessage) string {
 	}
 
 	return b.String()
+}
+
+// roleLabel returns the section header to use for a message in the
+// serialized summary input. User messages whose content is exclusively
+// tool_result blocks are labeled TOOL_RESULT so the summarizer treats
+// them as tool output rather than user speech.
+func roleLabel(msg InputMessage) string {
+	if msg.Role == RoleUser {
+		if blocks, ok := msg.Content.([]ContentBlock); ok && len(blocks) > 0 {
+			allToolResults := true
+			for _, b := range blocks {
+				if b.Type != ContentTypeToolResult {
+					allToolResults = false
+
+					break
+				}
+			}
+
+			if allToolResults {
+				return "TOOL_RESULT"
+			}
+		}
+	}
+
+	return strings.ToUpper(msg.Role)
 }
 
 func writeBlock(b *strings.Builder, block ContentBlock) {

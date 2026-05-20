@@ -5,9 +5,13 @@ import (
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/audit"
 )
 
-type TodoTool struct{}
+type TodoTool struct {
+	state *sdk.TodoState
+	audit *audit.Audit
+}
 
 func (t *TodoTool) Name() string {
 	return "todo"
@@ -18,7 +22,31 @@ func (t *TodoTool) Description() string {
 }
 
 func (t *TodoTool) Init(config map[string]string, configFactory *config.ConfigFactory) {
-	// No initialization needed
+	if t.state == nil {
+		t.state = sdk.NewTodoState()
+	}
+}
+
+func (t *TodoTool) SetAudit(audit *audit.Audit) {
+	t.audit = audit
+}
+
+func (t *TodoTool) SetTodoState(state *sdk.TodoState) {
+	t.state = state
+}
+
+func (t *TodoTool) TemplateKey() string {
+	return "Todo"
+}
+
+func (t *TodoTool) TemplateData() any {
+	return func() string {
+		if t.state == nil {
+			return ""
+		}
+
+		return t.state.List()
+	}
 }
 
 func (t *TodoTool) InputSchema() map[string]interface{} {
@@ -49,6 +77,15 @@ func (t *TodoTool) InputSchema() map[string]interface{} {
 }
 
 func (t *TodoTool) Call(input map[string]interface{}) (interface{}, error) {
+	defer func() {
+		if t.audit != nil && t.state != nil {
+			t.audit.LogEvent(audit.Event{
+				Type: audit.TodoEvent,
+				Todo: t.state.GetTasks(),
+			})
+		}
+	}()
+
 	action, ok := input["action"].(string)
 	if !ok {
 		return nil, fmt.Errorf("action is required and must be a string")
@@ -58,7 +95,7 @@ func (t *TodoTool) Call(input map[string]interface{}) (interface{}, error) {
 	case "add":
 		taskDesc, _ := input["task"].(string)
 		status, _ := input["status"].(string)
-		task, err := sdk.GlobalTodo.Add(taskDesc, status)
+		task, err := t.state.Add(taskDesc, status)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +106,7 @@ func (t *TodoTool) Call(input map[string]interface{}) (interface{}, error) {
 		id, _ := input["id"].(string)
 		taskDesc, _ := input["task"].(string)
 		status, _ := input["status"].(string)
-		task, err := sdk.GlobalTodo.Update(id, taskDesc, status)
+		task, err := t.state.Update(id, taskDesc, status)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +115,7 @@ func (t *TodoTool) Call(input map[string]interface{}) (interface{}, error) {
 
 	case "remove":
 		id, _ := input["id"].(string)
-		err := sdk.GlobalTodo.Remove(id)
+		err := t.state.Remove(id)
 		if err != nil {
 			return nil, err
 		}
@@ -86,10 +123,10 @@ func (t *TodoTool) Call(input map[string]interface{}) (interface{}, error) {
 		return fmt.Sprintf("Removed task %s", id), nil
 
 	case "list":
-		return sdk.GlobalTodo.List(), nil
+		return t.state.List(), nil
 
 	case "reset":
-		sdk.GlobalTodo.Reset()
+		t.state.Reset()
 
 		return "Todo list has been reset.", nil
 

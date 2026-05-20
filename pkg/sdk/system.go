@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 )
 
 // SystemPromptBuilder is a type passed to a go template that includes helper functions for building system prompts
@@ -73,14 +74,6 @@ func (s *SystemPromptBuilder) RepoContext() string {
 	return ""
 }
 
-func (s *SystemPromptBuilder) Plan() string {
-	return GlobalPlan.Format()
-}
-
-func (s *SystemPromptBuilder) Todo() string {
-	return GlobalTodo.List()
-}
-
 // GetAvailableFunctions returns an array of methods attached to this struct
 // This is only used for the human documentation when building prompts
 // and using reflections is fun :shrug:
@@ -123,18 +116,130 @@ func (s *SystemPromptBuilder) GetAvailableFunctions() []string {
 	return availableMethods
 }
 
-func RenderPrompt(prompt string) (string, error) {
+func RenderPrompt(prompt string, tools []AITool) (string, error) {
 	pt, err := template.New("system_prompt").Parse(prompt)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse prompt: %w", err)
 	}
 
+	// Base builder
+	builder := &SystemPromptBuilder{}
+
+	// Collect template contributors
+	var contributors []TemplateContributor
+	for _, t := range tools {
+		if tc, ok := t.(TemplateContributor); ok {
+			contributors = append(contributors, tc)
+		}
+	}
+
+	if len(contributors) == 0 {
+		var b strings.Builder
+		if err := pt.Execute(&b, builder); err != nil {
+			return "", fmt.Errorf("failed to render prompt: %w", err)
+		}
+
+		return b.String(), nil
+	}
+
+	// Build existing names map to prevent shadowing SystemPromptBuilder methods/fields
+	builderType := reflect.TypeOf(&SystemPromptBuilder{})
+	existingNames := make(map[string]bool)
+	for i := 0; i < builderType.NumMethod(); i++ {
+		existingNames[builderType.Method(i).Name] = true
+	}
+	baseType := builderType.Elem()
+	for i := 0; i < baseType.NumField(); i++ {
+		existingNames[baseType.Field(i).Name] = true
+	}
+
+	// Dynamically create a struct that embeds SystemPromptBuilder and adds fields for contributors
+	fields := []reflect.StructField{
+		{
+			Name:      "SystemPromptBuilder",
+			Type:      reflect.TypeOf(SystemPromptBuilder{}),
+			Anonymous: true,
+		},
+	}
+
+	seenKeys := make(map[string]bool)
+	type keyWithVal struct {
+		key  string
+		data any
+	}
+	var mappedContributors []keyWithVal
+
+	for _, tc := range contributors {
+		rawKey := tc.TemplateKey()
+		key := Capitalize(rawKey)
+		if key == "" {
+			return "", fmt.Errorf("contributor template key cannot be empty")
+		}
+
+		if existingNames[key] {
+			return "", fmt.Errorf("template key %q conflicts with existing SystemPromptBuilder methods or fields", key)
+		}
+
+		if seenKeys[key] {
+			return "", fmt.Errorf("duplicate template key %q among registered tools", key)
+		}
+		seenKeys[key] = true
+
+		val := tc.TemplateData()
+		if val != nil {
+			valVal := reflect.ValueOf(val)
+			if valVal.Kind() == reflect.Func && valVal.Type().NumIn() == 0 && valVal.Type().NumOut() == 1 {
+				results := valVal.Call(nil)
+				val = results[0].Interface()
+			}
+		}
+
+		var fieldType reflect.Type
+		if val == nil {
+			fieldType = reflect.TypeOf("")
+			val = ""
+		} else {
+			fieldType = reflect.TypeOf(val)
+		}
+
+		mappedContributors = append(mappedContributors, keyWithVal{
+			key:  key,
+			data: val,
+		})
+
+		fields = append(fields, reflect.StructField{
+			Name: key,
+			Type: fieldType,
+		})
+	}
+
+	dynamicType := reflect.StructOf(fields)
+	dynamicValue := reflect.New(dynamicType).Elem()
+
+	// Set the embedded SystemPromptBuilder
+	dynamicValue.FieldByName("SystemPromptBuilder").Set(reflect.ValueOf(*builder))
+
+	// Set the contributor fields
+	for _, mc := range mappedContributors {
+		dynamicValue.FieldByName(mc.key).Set(reflect.ValueOf(mc.data))
+	}
+
 	var b strings.Builder
-	if err := pt.Execute(&b, &SystemPromptBuilder{}); err != nil {
+	if err := pt.Execute(&b, dynamicValue.Interface()); err != nil {
 		return "", fmt.Errorf("failed to render prompt: %w", err)
 	}
 
 	return b.String(), nil
+}
+
+func Capitalize(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+
+	return string(r)
 }
 
 func listDir(dir string, depth int, maxDepth int) ([]string, error) {

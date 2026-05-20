@@ -17,6 +17,8 @@ import (
 type engage struct {
 	configFactory *config.ConfigFactory
 	prompt        string
+	planState     *sdk.PlanState
+	todoState     *sdk.TodoState
 }
 
 func NewEngage(c *config.ConfigFactory) *cobra.Command {
@@ -65,6 +67,9 @@ func (a *engage) createLogger() audit.Logger {
 
 func (a *engage) Run(cmd *cobra.Command, args []string) {
 	a.configFactory.LoadConfig()
+
+	a.planState = sdk.NewPlanState()
+	a.todoState = sdk.NewTodoState()
 
 	agentName := args[0]
 	agent := a.configFactory.GetAgent(agentName)
@@ -138,7 +143,13 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 			tool.Init(toolName.Config, a.configFactory)
 
 			if awareTool, ok := tool.(sdk.AuditAwareTool); ok {
-				awareTool.SetAudit(aiAudit.SessionID())
+				awareTool.SetAudit(aiAudit)
+			}
+			if awareTool, ok := tool.(sdk.PlanAwareTool); ok {
+				awareTool.SetPlanState(a.planState)
+			}
+			if awareTool, ok := tool.(sdk.TodoAwareTool); ok {
+				awareTool.SetTodoState(a.todoState)
 			}
 
 			aiSDK.RegisterTool(tool)
@@ -184,7 +195,7 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 	}
 
 	if agent.SystemPrompts != "" {
-		rendered, err := sdk.RenderPrompt(agent.SystemPrompts)
+		rendered, err := sdk.RenderPrompt(agent.SystemPrompts, aiSDK.Tools())
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to render prompt").WithReason(err).Done()
 		}

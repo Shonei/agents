@@ -3,7 +3,10 @@ package sdk
 import (
 	"os"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/Shonei/agents/pkg/config"
 )
 
 func Test_SystemPromptBuilder(t *testing.T) {
@@ -30,7 +33,7 @@ func Test_RenderPrompt_Cwd(t *testing.T) {
 		t.Fatalf("failed to get cwd: %v", err)
 	}
 
-	rendered, err := RenderPrompt("{{ .Cwd }}")
+	rendered, err := RenderPrompt("{{ .Cwd }}", nil)
 	if err != nil {
 		t.Fatalf("RenderPrompt returned error: %v", err)
 	}
@@ -86,5 +89,61 @@ func Test_RepoContext(t *testing.T) {
 	expectedAgents := "<repository_instructions source=\"AGENTS.md\">\nagents md content\n</repository_instructions>"
 	if got := builder.RepoContext(); got != expectedAgents {
 		t.Errorf("expected %q, got %q", expectedAgents, got)
+	}
+}
+
+type mockContributor struct {
+	key  string
+	data any
+}
+
+func (m *mockContributor) Name() string                                                       { return "mock" }
+func (m *mockContributor) Description() string                                                { return "mock" }
+func (m *mockContributor) Init(config map[string]string, configFactory *config.ConfigFactory) {}
+func (m *mockContributor) InputSchema() map[string]interface{}                                { return nil }
+func (m *mockContributor) Call(input map[string]interface{}) (interface{}, error)             { return nil, nil }
+func (m *mockContributor) TemplateKey() string                                                { return m.key }
+func (m *mockContributor) TemplateData() any                                                  { return m.data }
+
+func TestRenderPrompt_ValidationAndCapitalization(t *testing.T) {
+	// 1. Capitalization test (lowercase "my_var" becomes "My_var")
+	contrib1 := &mockContributor{
+		key:  "my_var",
+		data: func() string { return "capitalized_success" },
+	}
+	rendered, err := RenderPrompt("{{ .My_var }}", []AITool{contrib1})
+	if err != nil {
+		t.Fatalf("expected no error for capitalized key rendering, got: %v", err)
+	}
+	if rendered != "capitalized_success" {
+		t.Errorf("expected 'capitalized_success', got %q", rendered)
+	}
+
+	// 2. Conflict with existing method test ("cwd" becomes "Cwd", conflicts with Cwd() method)
+	contrib2 := &mockContributor{
+		key:  "cwd",
+		data: func() string { return "conflict" },
+	}
+	_, err = RenderPrompt("{{ .Cwd }}", []AITool{contrib2})
+	if err == nil {
+		t.Error("expected error due to conflict with existing Cwd method, got nil")
+	} else if !strings.Contains(err.Error(), "conflicts with existing SystemPromptBuilder") {
+		t.Errorf("expected conflict error message, got: %v", err)
+	}
+
+	// 3. Duplicate key test (both lowercase and uppercase versions capitalized to "Custom")
+	contrib3a := &mockContributor{
+		key:  "custom",
+		data: "val1",
+	}
+	contrib3b := &mockContributor{
+		key:  "Custom",
+		data: "val2",
+	}
+	_, err = RenderPrompt("{{ .Custom }}", []AITool{contrib3a, contrib3b})
+	if err == nil {
+		t.Error("expected error due to duplicate template keys, got nil")
+	} else if !strings.Contains(err.Error(), "duplicate template key") {
+		t.Errorf("expected duplicate error message, got: %v", err)
 	}
 }

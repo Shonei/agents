@@ -8,6 +8,7 @@ import (
 
 	"github.com/Shonei/agents/pkg/config"
 	"github.com/Shonei/agents/pkg/sdk"
+	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
 )
 
@@ -46,7 +47,7 @@ func (a *sPrompt) Run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	prompt, err := sdk.RenderPrompt(agent.SystemPrompts)
+	prompt, err := sdk.RenderPrompt(agent.SystemPrompts, tools.Tools())
 	if err != nil {
 		utils.NewExitError().WithMessage("failed to render prompt").WithReason(err).Done()
 	}
@@ -63,7 +64,7 @@ func (a *sPrompt) printRouter(name string, agent config.Agent) {
 	for _, route := range agent.Routes {
 		sub := a.configFactory.GetAgent(route.Agent)
 
-		rendered, err := sdk.RenderPrompt(sub.SystemPrompts)
+		rendered, err := sdk.RenderPrompt(sub.SystemPrompts, tools.Tools())
 		if err != nil {
 			utils.NewExitError().WithMessage("failed to render prompt for " + route.Agent).WithReason(err).Done()
 		}

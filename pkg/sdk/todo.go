@@ -20,9 +20,11 @@ type TodoState struct {
 	nextID int
 }
 
-var GlobalTodo = &TodoState{
-	tasks:  make(map[string]*Task),
-	nextID: 1,
+func NewTodoState() *TodoState {
+	return &TodoState{
+		tasks:  make(map[string]*Task),
+		nextID: 1,
+	}
 }
 
 func (t *TodoState) Add(description, status string) (*Task, error) {

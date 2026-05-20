@@ -46,6 +46,12 @@ func NewAdd(c *config.ConfigFactory) *cobra.Command {
 	spb := &sdk.SystemPromptBuilder{}
 	promptFunctions := spb.GetAvailableFunctions()
 
+	for _, t := range tools.Tools() {
+		if tc, ok := t.(sdk.TemplateContributor); ok {
+			promptFunctions = append(promptFunctions, sdk.Capitalize(tc.TemplateKey())+"()")
+		}
+	}
+
 	flags := cmd.Flags()
 	flags.StringVar(&a.name, "name", "", "Name of the agent")
 	flags.StringVar(&a.systemPrompts, "system-prompt", "", "System prompts for the agent. You can use go template syntax to access functions like {{ .Cwd }}. Available functions: ["+strings.Join(promptFunctions, ", ")+"]")

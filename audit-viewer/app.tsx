@@ -832,7 +832,7 @@ function PlanBlock({ plan }: { plan: NonNullable<AuditMessage["plan"]> }) {
                   </div>
               )}
               <ul className="plan-steps">
-                {plan.steps.map((step) => (
+                {plan.steps?.map((step) => (
                     <li key={step.id} className={`plan-step status-${step.status}`}>
                       <span className="step-id">[{step.id}]</span>
                       <span className="step-status">[{step.status}]</span>

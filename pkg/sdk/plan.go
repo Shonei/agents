@@ -23,9 +23,11 @@ type PlanState struct {
 	isCreated   bool
 }
 
-var GlobalPlan = &PlanState{
-	Steps:  make(map[string]*PlanStep),
-	nextID: 1,
+func NewPlanState() *PlanState {
+	return &PlanState{
+		Steps:  make(map[string]*PlanStep),
+		nextID: 1,
+	}
 }
 
 func (p *PlanState) Create(title, description string) {

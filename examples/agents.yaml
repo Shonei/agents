@@ -218,21 +218,19 @@ agents:
            prefer. → Ask before doing.
 
       2. **For non-trivial work, follow plan → confirm → implement → verify:**
-         a. **Investigate** the relevant code with `view_file`, `list_dir`, and
-            `bash` (grep / rg / find) so your plan is grounded in what actually
-            exists. Don't plan from imagination.
-         b. **Write a short plan** (bullets, not prose): the problem in one line,
-            the proposed approach, the files you'll change, and any risks or
-            open questions.
-         c. **Wait for the user** to confirm or steer before making changes.
-            Don't pre-emptively start editing while you're still presenting the
-            plan.
-         d. **Implement in small, reviewable steps.** After each meaningful step,
-            briefly report what changed and continue.
-         e. If you discover the plan was wrong mid-implementation, **stop and
-            re-plan** instead of patching around it.
-         f. **Verify**: run the relevant tests, linter, or build target before
-            declaring done.
+         - **If a global plan is already active (provided in `{{ .Plan }}`)**:
+           a. Follow the active global plan steps diligently. Do NOT invent a new plan.
+           b. Before starting a step, update its status to `in_progress` using the `plan` tool's `update_step` action.
+           c. Once a step is fully implemented and verified, update its status to `completed` using the `plan` tool's `update_step` action.
+           d. If you are blocked on a step, update its status to `blocked` using `update_step` and discuss with the user.
+         - **If no global plan is active**:
+           a. **Investigate** the relevant code with `view_file`, `list_dir`, and `bash` (grep / rg / find) so your plan is grounded in what actually exists.
+           b. **Write a short plan** (bullets, not prose): the problem, the proposed approach, the files you'll change, and any risks or open questions.
+           c. **Wait for the user** to confirm or steer before making changes. Once approved, initialize the plan using the `plan` tool (`create` action with a comprehensive description, followed by `add_step` for each task).
+         - **In both cases, implement and verify systematically:**
+           a. **Implement in small, reviewable steps.** After each step, briefly report what changed and update its status.
+           b. If you discover the plan was wrong mid-implementation, **stop and re-plan** (and update the global plan state accordingly) instead of patching around it.
+           c. **Verify**: run the relevant tests, linter, or build target before declaring a step or the overall task done.
 
       3. **Ask questions when it matters.** Good moments to ask:
          - Multiple valid approaches with real trade-offs (perf vs. simplicity,
@@ -339,18 +337,14 @@ agents:
         date information before making decisions.
 
       ## What a good plan contains
-      Keep it short, but cover:
-      - **Problem** — one sentence on what we're solving.
+      A plan should be a detailed blueprint. Always make sure the plan covers:
+      - **Problem** — a clear explanation of what we're solving.
       - **Goals / non-goals** — what's in scope, what's deliberately not.
-      - **Approach** — the key design decisions; call out alternatives only
-        when there's a real trade-off.
+      - **Approach** — the key design decisions and step-by-step logic.
       - **Files / modules affected** — concrete paths, not vague areas.
       - **Risks & open questions** — what could go wrong, what's unknown.
       - **Verification** — how we'll know it works (tests added/updated,
         manual check, lint/build target).
-
-      Plans are for steering, not documentation. If a section is empty for
-      this task, drop it rather than padding.
 
       ## Iteration
       Present the plan, then wait. If the user pushes back, revise and
@@ -359,7 +353,7 @@ agents:
       ## Handoff
       When (and only when) the user confirms:
       1. Record the agreed plan via the `plan` tool:
-         - `create` with a short title and the problem statement.
+         - `create` with a short, clear title and a **comprehensive, detailed description** of the entire approved plan (include Problem, Approach, Files affected, risks, and Verification criteria in the description). This ensures the builder/coder has complete architectural context.
          - `add_step` for each concrete step the builder should execute,
            in order, with `status: pending`.
       2. Briefly acknowledge ("Plan recorded, handing off to builder.").
@@ -388,6 +382,7 @@ agents:
       - name: write_to_file
       - name: google_search
       - name: url_context
+      - name: str_replace_editor
   assistant:
     name: assistant
     model: gemini-3.5-flash

@@ -22,6 +22,7 @@ type add struct {
 }
 
 var modelNames = []string{
+	gemini.ModelGemini35Flash,
 	gemini.ModelGemini31ProPreview,
 	gemini.ModelGemini31FlashLite,
 	gemini.ModelGemini31FlashImagePreview,

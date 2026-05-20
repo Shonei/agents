@@ -9,6 +9,8 @@ interface AuditFile {
   fullHash: string;
   timestamp: number;
   date: string;
+  eventCount?: number;
+  groundingCount?: number;
 }
 
 interface AuditMessage {
@@ -37,6 +39,15 @@ interface AuditMessage {
     system_prompt?: string;
   };
   grounding?: GroundingMetadata;
+  plan?: {
+    title: string;
+    description: string;
+    steps: {
+      id: string;
+      description: string;
+      status: string;
+    }[];
+  };
 }
 
 interface GroundingMetadata {
@@ -59,6 +70,7 @@ function App() {
   const [auditContent, setAuditContent] = useState<AuditMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hideEmpty, setHideEmpty] = useState(true);
 
   // Load audit files list
   useEffect(() => {
@@ -85,23 +97,66 @@ function App() {
     }
   };
 
+  const emptyCount = audits.filter(
+    (a) => (a.eventCount ?? -1) === 0
+  ).length;
+  const visibleAudits = hideEmpty
+    ? audits.filter((a) => (a.eventCount ?? -1) !== 0)
+    : audits;
+
   return (
     <div className="container">
       <aside className="sidebar">
         <h1>📋 Audits</h1>
+        {emptyCount > 0 && (
+          <label className="sidebar-toggle">
+            <input
+              type="checkbox"
+              checked={hideEmpty}
+              onChange={(e) => setHideEmpty(e.target.checked)}
+            />
+            Hide empty sessions ({emptyCount})
+          </label>
+        )}
         <ul className="audit-list">
-          {audits.map((audit) => (
-            <li
-              key={audit.filename}
-              className={`audit-item ${selectedAudit === audit.filename ? "active" : ""}`}
-              onClick={() => loadAudit(audit.filename)}
-            >
-              <div className="audit-hash">{audit.hash}</div>
-              <div className="audit-date">
-                {new Date(audit.date).toLocaleString()}
-              </div>
-            </li>
-          ))}
+          {visibleAudits.map((audit) => {
+            const isEmpty = (audit.eventCount ?? -1) === 0;
+            return (
+              <li
+                key={audit.filename}
+                className={`audit-item ${selectedAudit === audit.filename ? "active" : ""} ${isEmpty ? "empty" : ""}`}
+                onClick={() => loadAudit(audit.filename)}
+              >
+                <div className="audit-hash">{audit.hash}</div>
+                <div className="audit-date">
+                  {new Date(audit.date).toLocaleString()}
+                </div>
+                <div className="audit-badges">
+                  {audit.eventCount !== undefined && (
+                    <span
+                      className={`audit-badge events-badge ${isEmpty ? "empty" : ""}`}
+                      title={`${audit.eventCount} ${
+                        audit.eventCount === 1 ? "event" : "events"
+                      }`}
+                    >
+                      {audit.eventCount} {audit.eventCount === 1 ? "event" : "events"}
+                    </span>
+                  )}
+                  {audit.groundingCount && audit.groundingCount > 0 ? (
+                    <span
+                      className="audit-badge grounding-badge"
+                      title={`${audit.groundingCount} grounding ${
+                        audit.groundingCount === 1 ? "event" : "events"
+                      }`}
+                    >
+                      <span className="tool-icon">🌐</span>
+                      <span>{audit.groundingCount}</span>
+                    </span>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </aside>
 
@@ -123,11 +178,27 @@ function App() {
 }
 
 function AuditContent({ messages }: { messages: AuditMessage[] }) {
+  // A session with only the synthetic User record (system prompt) has no
+  // recorded conversation. Surface that explicitly so it doesn't look like a
+  // rendering bug.
+  const hasEvents = messages.some((m, idx) => idx > 0 || (!m.system_prompt && !m.id));
+
   return (
     <div>
       {messages.map((msg, idx) => (
         <MessageBlock key={idx} message={msg} index={idx} />
       ))}
+      {!hasEvents && messages.length > 0 && (
+        <div className="message-block empty-session">
+          <div className="message-type">No events recorded</div>
+          <div className="message-content">
+            This session was registered (system prompt above) but never produced
+            any audit events. This typically happens for router agents (which
+            log events under their sub-agents' sessions) or for sub-agents that
+            were initialized but never invoked.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -207,6 +278,11 @@ function MessageBlock({ message, index }: { message: AuditMessage; index: number
 
   // Grounding (server-side tool activity, e.g. google_search / url_context).
   // Newer audits store the payload on `grounding`; older file-mode audits
+  // Plan
+  if (message.type === "plan" && message.plan) {
+    return <PlanBlock plan={message.plan} />;
+  }
+
   // had it shoehorned into `function_response`.
   if (message.type === "grounding") {
     const meta =
@@ -718,6 +794,45 @@ function CopyButton({ content, small = false }: { content: string; small?: boole
     >
       {copied ? "✓" : "📋"}
     </button>
+  );
+}
+
+function PlanBlock({ plan }: { plan: NonNullable<AuditMessage["plan"]> }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+      <div className="message-block plan">
+        <div className="function-header">
+          <div className="message-type">
+            <span className="tool-icon">📋</span>
+            <span>Plan: <strong>{plan.title}</strong></span>
+          </div>
+          <button
+              className="collapse-btn"
+              onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? "▶ Show" : "▼ Hide"}
+          </button>
+        </div>
+        {!collapsed && (
+            <div className="message-content">
+              {plan.description && (
+                  <div className="plan-description markdown">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
+                  </div>
+              )}
+              <ul className="plan-steps">
+                {plan.steps.map((step) => (
+                    <li key={step.id} className={`plan-step status-${step.status}`}>
+                      <span className="step-id">[{step.id}]</span>
+                      <span className="step-status">[{step.status}]</span>
+                      <span className="step-description">{step.description}</span>
+                    </li>
+                ))}
+              </ul>
+            </div>
+        )}
+      </div>
   );
 }
 

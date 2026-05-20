@@ -101,6 +101,7 @@ agents add \
 ```
 
 **Supported Models:**
+*   `gemini-3.5-flash`
 *   `gemini-3.1-pro-preview`
 *   `gemini-3.1-flash-lite`
 *   `gemini-3.1-flash-image-preview`
@@ -115,6 +116,7 @@ agents add \
 *   `str_replace_editor`: Safely edits existing files using precise string replacement or insertion.
 *   `rag`: Search information in your local code base.
 *   `memory`: Long-term memory storage (store/retrieve).
+*   `plan`: A planning tool to create and manage a global plan shared across agents.
 *   `github_pr_details`: Fetch PR metadata (title, body, state, author).
 *   `github_pr_diff`: Fetch the raw diff/patch of a PR.
 *   `github_pr_comments`: Fetch existing review and issue comments on a PR.

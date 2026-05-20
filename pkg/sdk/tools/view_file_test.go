@@ -58,23 +58,16 @@ func (t *TimeTool) Call(input map[string]interface{}) (interface{}, error) {
 `
 
 // careful with spaces and tabs when editing. It is hard to see when debugging
-const expectOutput = `<filePath>%s</filePath>
-<fileInfo>
-  Size: 1.0 KB
-  Lines: 48
-  Modified: %s
-</fileInfo>
-<viewRange>5-10 of 48</viewRange>
-<content>
+const expectOutput = `%s (1.0 KB, 48 lines, modified %s) — lines 5-10 of 48
+
   ⋮ (4 lines above)
-   5  	"time"
-   6  )
-   7  
-   8  // TimeTool returns the current time
-   9  type TimeTool struct{}
-  10  
+     5|	"time"
+     6|)
+     7|
+     8|// TimeTool returns the current time
+     9|type TimeTool struct{}
+    10|
   ⋮ (38 lines below)
-</content>
 `
 
 func TestViewFile_readsFile(t *testing.T) {
@@ -97,8 +90,9 @@ func TestViewFile_readsFile(t *testing.T) {
 	}
 
 	input := map[string]interface{}{
-		"path":       path,
-		"view_range": []int{5, 10},
+		"path":   path,
+		"offset": 5,
+		"limit":  6,
 	}
 
 	result, err := viewTool.Call(input)

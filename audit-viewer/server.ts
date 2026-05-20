@@ -81,7 +81,22 @@ const server = Bun.serve({
         if (config.audit?.type === "database") {
           if (!db) throw new Error("Database not connected");
           const rows = await dbAll(
-            "SELECT * FROM audit_sessions ORDER BY created_at DESC"
+            `SELECT s.*,
+                    COALESCE(t.n, 0) AS event_count,
+                    COALESCE(g.n, 0) AS grounding_count
+             FROM audit_sessions s
+             LEFT JOIN (
+               SELECT session_id, COUNT(*) AS n
+               FROM audit_events
+               GROUP BY session_id
+             ) t ON t.session_id = s.id
+             LEFT JOIN (
+               SELECT session_id, COUNT(*) AS n
+               FROM audit_events
+               WHERE type = 'grounding'
+               GROUP BY session_id
+             ) g ON g.session_id = s.id
+             ORDER BY s.created_at DESC`
           );
 
           const sessions = rows.map((row: any) => {
@@ -92,6 +107,8 @@ const server = Bun.serve({
               fullHash: row.session_hash,
               timestamp: Math.floor(date.getTime() / 1000),
               date: date.toISOString(),
+              eventCount: Number(row.event_count ?? 0),
+              groundingCount: Number(row.grounding_count ?? 0),
             };
           });
           return new Response(JSON.stringify(sessions), {
@@ -100,19 +117,38 @@ const server = Bun.serve({
         } else {
           // File mode
           const files = await readdir(AUDIT_DIR);
-          const jsonFiles = files
-            .filter((f) => f.endsWith(".json"))
-            .map((f) => {
-              const [hash, timestamp] = f.replace(".json", "").split("_");
-              return {
-                filename: f,
-                hash: hash.substring(0, 8),
-                fullHash: hash,
-                timestamp: parseInt(timestamp),
-                date: new Date(parseInt(timestamp) * 1000).toISOString(),
-              };
-            })
-            .sort((a, b) => b.timestamp - a.timestamp);
+          const jsonFiles = await Promise.all(
+            files
+              .filter((f) => f.endsWith(".json"))
+              .map(async (f) => {
+                const [hash, timestamp] = f.replace(".json", "").split("_");
+                // Cheap scan: count event lines and grounding events from the JSONL.
+                // The first line is the User record; remaining lines are events.
+                let eventCount = 0;
+                let groundingCount = 0;
+                try {
+                  const content = await readFile(join(AUDIT_DIR, f), "utf-8");
+                  const lines = content
+                    .split("\n")
+                    .filter((line) => line.trim().length > 0);
+                  eventCount = Math.max(0, lines.length - 1);
+                  const matches = content.match(/"type"\s*:\s*"grounding"/g);
+                  groundingCount = matches ? matches.length : 0;
+                } catch {
+                  // ignore unreadable files
+                }
+                return {
+                  filename: f,
+                  hash: hash.substring(0, 8),
+                  fullHash: hash,
+                  timestamp: parseInt(timestamp),
+                  date: new Date(parseInt(timestamp) * 1000).toISOString(),
+                  eventCount,
+                  groundingCount,
+                };
+              })
+          );
+          jsonFiles.sort((a, b) => b.timestamp - a.timestamp);
 
           return new Response(JSON.stringify(jsonFiles), {
             headers: { "Content-Type": "application/json" },
@@ -184,6 +220,7 @@ const server = Bun.serve({
                 event.route_selection = payload;
               else if (row.type === "handoff") event.handoff = payload;
               else if (row.type === "grounding") event.grounding = payload;
+                else if (row.type === "plan") event.plan = payload;
             }
 
             responseLines.push(event);

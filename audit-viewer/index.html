@@ -77,6 +77,71 @@
       margin-top: 4px;
     }
 
+    .audit-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .audit-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      line-height: 1.4;
+    }
+
+    .audit-badge .tool-icon {
+      font-size: 12px;
+    }
+
+    .audit-badge.grounding-badge {
+      background: rgba(107, 163, 255, 0.12);
+      color: #6ba3ff;
+      border: 1px solid rgba(107, 163, 255, 0.3);
+    }
+
+    .audit-badge.events-badge {
+      background: rgba(255, 255, 255, 0.06);
+      color: #c0c0c0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .audit-badge.events-badge.empty {
+      background: transparent;
+      color: #777;
+      border-style: dashed;
+    }
+
+    .audit-item.empty {
+      opacity: 0.6;
+    }
+
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sidebar-toggle input {
+      cursor: pointer;
+    }
+
+    .message-block.empty-session {
+      border-left-color: #555;
+      background: #1a1a1a;
+      color: #888;
+      font-style: italic;
+    }
+
     .main-content {
       flex: 1;
       overflow-y: auto;
@@ -147,6 +212,65 @@
     .message-block.grounding {
       border-left-color: #6ba3ff;
       background: #19222e;
+    }
+
+    .message-block.plan {
+      border-left-color: #e7c46e;
+      background: #2b2919;
+    }
+
+    .plan-steps {
+      list-style: none;
+      margin-top: 12px;
+      margin-left: 0;
+    }
+
+    .plan-step {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .plan-step .step-id {
+      color: #888;
+      font-family: monospace;
+    }
+
+    .plan-step .step-status {
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .plan-step.status-completed .step-status {
+      color: #6ee7a0;
+      background: rgba(110, 231, 160, 0.15);
+    }
+
+    .plan-step.status-pending .step-status {
+      color: #e7c46e;
+      background: rgba(231, 196, 110, 0.15);
+    }
+
+    .plan-step.status-in_progress .step-status {
+      color: #6ba3ff;
+      background: rgba(107, 163, 255, 0.15);
+    }
+
+    .plan-step.status-blocked .step-status {
+      color: #e76e6e;
+      background: rgba(231, 110, 110, 0.15);
+    }
+
+    .plan-step .step-description {
+      flex: 1;
     }
 
     .grounding-section {

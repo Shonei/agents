@@ -471,6 +471,15 @@ func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error)
 				return nil, err
 			}
 
+			if tool.Name() == "plan" {
+				if snapshot := GlobalPlan.Snapshot(); snapshot != nil {
+					a.audit.LogEvent(audit.Event{
+						Type: audit.PlanEvent,
+						Plan: snapshot,
+					})
+				}
+			}
+
 			// Convert result to JSON string for API compatibility
 			// The Anthropic API requires tool result content to be a string or array of content blocks
 			var resultContent string

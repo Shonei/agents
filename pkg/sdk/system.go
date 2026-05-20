@@ -73,6 +73,10 @@ func (s *SystemPromptBuilder) RepoContext() string {
 	return ""
 }
 
+func (s *SystemPromptBuilder) Plan() string {
+	return GlobalPlan.Format()
+}
+
 // GetAvailableFunctions returns an array of methods attached to this struct
 // This is only used for the human documentation when building prompts
 // and using reflections is fun :shrug:

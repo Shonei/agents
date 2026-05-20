@@ -16,10 +16,10 @@ type ViewFileTool struct{}
 func (t *ViewFileTool) Name() string { return "view_file" }
 
 func (t *ViewFileTool) Description() string {
-	return "Reads a file and returns its contents with line numbers. Supports viewing a line range. Only works for files; use list_dir for directories."
+	return "Reads a file and returns its contents with stable line numbers in `N|content` format, designed for citing locations (e.g. `path/to/file.go:42`). Prefer this over `bash cat`/`head`/`tail` for any file you'll want to reference later — `cat` has no line numbers, no range support, and no truncation cap for huge files. Optional `offset` (1-based start line) and `limit` (max lines to read) for viewing slices; rejects binary files. Use `list_dir` for directories."
 }
 
-func (t *ViewFileTool) Init(config map[string]string, _ *config.ConfigFactory) {
+func (t *ViewFileTool) Init(_ map[string]string, _ *config.ConfigFactory) {
 }
 
 func (t *ViewFileTool) InputSchema() map[string]interface{} {
@@ -31,12 +31,13 @@ func (t *ViewFileTool) InputSchema() map[string]interface{} {
 				"description": "File to view, relative to the repository root or absolute.",
 				"example":     "pkg/sdk/workflows/workflows.go",
 			},
-			"view_range": map[string]interface{}{
-				"type":        "array",
-				"description": "Optional 1-based inclusive [start_line, end_line]. Use -1 as end_line to mean 'to end of file'.",
-				"items": map[string]interface{}{
-					"type": "integer",
-				},
+			"offset": map[string]interface{}{
+				"type":        "integer",
+				"description": "Optional 1-based line number to start reading from. Default 1 (start of file).",
+			},
+			"limit": map[string]interface{}{
+				"type":        "integer",
+				"description": "Optional number of lines to read starting from `offset`. Default: read to end of file (subject to a built-in cap on very large files).",
 			},
 		},
 		"required": []interface{}{"path"},
@@ -44,27 +45,20 @@ func (t *ViewFileTool) InputSchema() map[string]interface{} {
 }
 
 type ViewFileToolInput struct {
-	Path               string `json:"path"`
-	ViewRange          []int  `json:"view_range"`
-	ContextLinesBefore int    `json:"context_lines_before"`
-	ContextLinesAfter  int    `json:"context_lines_after"`
-}
-
-type lineRange struct {
-	start int
-	end   int
+	Path   string `json:"path"`
+	Offset int    `json:"offset"`
+	Limit  int    `json:"limit"`
 }
 
 const (
 	// Max lines to display without warning
 	maxLinesWarningThreshold = 1000
-	// Max lines to display at all
+	// Max lines to display at all (without offset/limit)
 	maxLinesHardLimit = 10000
 )
 
-// isBinary checks if the file content appears to be binary
+// isBinary checks if the file content appears to be binary.
 func isBinary(data []byte) bool {
-	// Check first 8KB for null bytes or high percentage of non-text bytes
 	checkSize := 8192
 	if len(data) < checkSize {
 		checkSize = len(data)
@@ -78,13 +72,12 @@ func isBinary(data []byte) bool {
 		if b == 0 {
 			nullCount++
 		}
-		// Count non-printable characters (excluding common whitespace)
+
 		if b < 32 && b != '\n' && b != '\r' && b != '\t' {
 			nonPrintable++
 		}
 	}
 
-	// If we find null bytes or >30% non-printable, consider it binary
 	if nullCount > 0 || (float64(nonPrintable)/float64(checkSize)) > 0.3 {
 		return true
 	}
@@ -92,12 +85,13 @@ func isBinary(data []byte) bool {
 	return false
 }
 
-// formatFileSize formats bytes into human-readable format
+// formatFileSize formats bytes into human-readable format.
 func formatFileSize(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
 	}
+
 	div, exp := int64(unit), 0
 	for n := bytes / unit; n >= unit; n /= unit {
 		div *= unit
@@ -107,14 +101,18 @@ func formatFileSize(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// lineNumberWidth calculates the width needed for line numbers
+// lineNumberWidth calculates the width needed for line numbers.
+// Pads to a minimum of 6 so the gutter looks consistent across files
+// and matches the conventional `      N|content` layout that downstream
+// LLMs are most familiar with.
 func lineNumberWidth(totalLines int) int {
 	width := 1
 	for n := totalLines; n >= 10; n /= 10 {
 		width++
 	}
-	if width < 4 {
-		width = 4
+
+	if width < 6 {
+		width = 6
 	}
 
 	return width
@@ -135,6 +133,13 @@ func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 
+	// displayPath is what the caller sees echoed back. We deliberately
+	// preserve the path they passed in (relative or absolute) so the
+	// tool's output doesn't leak the local absolute path when the agent
+	// asked for a project-relative one. Internal stat/read still uses
+	// the resolved absolute path.
+	displayPath := in.Path
+
 	path := in.Path
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(cwd, path)
@@ -142,7 +147,7 @@ func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 
 	info, err := os.Stat(path)
 	if err != nil {
-		if ok := os.IsNotExist(err); ok {
+		if os.IsNotExist(err) {
 			return "", sdk.NewAIError(fmt.Sprintf("failed to stat path: %s", path)).WithReason(err)
 		}
 
@@ -158,7 +163,6 @@ func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Check if file is binary
 	if isBinary(data) {
 		return "", sdk.NewAIError(fmt.Sprintf("Cannot display binary file: %s (size: %s). Use a different tool for binary files.", path, formatFileSize(info.Size())))
 	}
@@ -166,114 +170,91 @@ func (t *ViewFileTool) Call(input map[string]interface{}) (interface{}, error) {
 	lines := strings.Split(string(data), "\n")
 	total := len(lines)
 
-	// Handle empty files
+	// Empty file: collapse to a single-line header. Same shape as the
+	// non-empty case, just without the content block.
 	if total == 0 || (total == 1 && lines[0] == "") {
-		var b strings.Builder
-		fmt.Fprintf(&b, "<filePath>%s</filePath>\n", path)
-		fmt.Fprintf(&b, "<fileInfo>\n")
-		fmt.Fprintf(&b, "  Size: %s\n", formatFileSize(info.Size()))
-		fmt.Fprintf(&b, "  Modified: %s\n", info.ModTime().Format(time.RFC3339))
-		fmt.Fprintf(&b, "</fileInfo>\n")
-		fmt.Fprintf(&b, "<viewRange>0 lines (empty file)</viewRange>\n")
-		fmt.Fprintf(&b, "<content>\n")
-		fmt.Fprintf(&b, "  (empty file)\n")
-		fmt.Fprintf(&b, "</content>\n")
-
-		return b.String(), nil
+		return fmt.Sprintf("%s (%s, modified %s) — empty file\n",
+			displayPath,
+			formatFileSize(info.Size()),
+			info.ModTime().Format(time.RFC3339),
+		), nil
 	}
 
-	start, end, err := resolveRange(in.ViewRange, total)
+	sliceProvided := in.Offset > 0 || in.Limit > 0
+
+	start, end, err := resolveSlice(in.Offset, in.Limit, total)
 	if err != nil {
 		return "", err
 	}
 
-	// Check if file is very large
 	var warnings []string
-	if total > maxLinesHardLimit {
-		if len(in.ViewRange) == 0 {
-			// No range specified, truncate to hard limit
-			end = maxLinesHardLimit
-			warnings = append(warnings, fmt.Sprintf("⚠ File has %d lines. Truncated to first %d lines. Use view_range parameter to view specific sections.", total, maxLinesHardLimit))
-		}
-	} else if total > maxLinesWarningThreshold && len(in.ViewRange) == 0 {
-		warnings = append(warnings, fmt.Sprintf("⚠ Large file (%d lines). Consider using view_range parameter to view specific sections.", total))
+
+	switch {
+	case !sliceProvided && total > maxLinesHardLimit:
+		end = maxLinesHardLimit
+		warnings = append(warnings, fmt.Sprintf("⚠ File has %d lines; output truncated to first %d. Use `offset`/`limit` to view further sections.", total, maxLinesHardLimit))
+	case !sliceProvided && total > maxLinesWarningThreshold:
+		warnings = append(warnings, fmt.Sprintf("⚠ Large file (%d lines). Consider using `offset`/`limit` to view a specific section.", total))
 	}
 
 	var b strings.Builder
 
-	// File path
-	fmt.Fprintf(&b, "<filePath>%s</filePath>\n", path)
+	fmt.Fprintf(&b, "%s (%s, %d lines, modified %s) — lines %d-%d of %d\n",
+		displayPath,
+		formatFileSize(info.Size()),
+		total,
+		info.ModTime().Format(time.RFC3339),
+		start, end, total,
+	)
 
-	// File metadata
-	fmt.Fprintf(&b, "<fileInfo>\n")
-	fmt.Fprintf(&b, "  Size: %s\n", formatFileSize(info.Size()))
-	fmt.Fprintf(&b, "  Lines: %d\n", total)
-	fmt.Fprintf(&b, "  Modified: %s\n", info.ModTime().Format(time.RFC3339))
-	fmt.Fprintf(&b, "</fileInfo>\n")
-
-	// Warnings if any
-	if len(warnings) > 0 {
-		fmt.Fprintf(&b, "<warnings>\n")
-		for _, w := range warnings {
-			fmt.Fprintf(&b, "  %s\n", w)
-		}
-		fmt.Fprintf(&b, "</warnings>\n")
+	for _, w := range warnings {
+		fmt.Fprintln(&b, w)
 	}
 
-	// View range with context indicators
-	fmt.Fprintf(&b, "<viewRange>%d-%d of %d</viewRange>\n", start, end, total)
+	b.WriteString("\n")
 
-	// Calculate line number width dynamically
 	lineWidth := lineNumberWidth(total)
-	lineFormat := fmt.Sprintf("%%%dd  %%s\n", lineWidth)
+	lineFormat := fmt.Sprintf("%%%dd|%%s\n", lineWidth)
 
-	fmt.Fprintf(&b, "<content>\n")
-
-	// Context indicator: lines above
 	if start > 1 {
 		fmt.Fprintf(&b, "  ⋮ (%d lines above)\n", start-1)
 	}
 
-	// Display the actual content
 	for ln := start; ln <= end && ln <= total; ln++ {
 		fmt.Fprintf(&b, lineFormat, ln, lines[ln-1])
 	}
 
-	// Context indicator: lines below
 	if end < total {
 		fmt.Fprintf(&b, "  ⋮ (%d lines below)\n", total-end)
 	}
 
-	fmt.Fprintf(&b, "</content>\n")
-
 	return b.String(), nil
 }
 
-func resolveRange(viewRange []int, total int) (int, int, error) {
-	start, end := 1, total
-	if len(viewRange) > 0 {
-		if len(viewRange) != 2 {
-			return 0, 0, sdk.NewAIError("view_range must have exactly 2 elements")
-		}
-
-		start = viewRange[0]
-		end = viewRange[1]
-
-		if start < 1 {
-			start = 1
-		}
-
-		if end == -1 || end > total {
-			end = total
-		}
-	}
-
+// resolveSlice converts the (offset, limit) input pair into a concrete
+// 1-based inclusive [start, end] window over a file of `total` lines.
+// Offset 0 or unset means "start at line 1". Limit 0 or unset means
+// "read to end of file".
+func resolveSlice(offset, limit, total int) (int, int, error) {
 	if total == 0 {
 		return 1, 0, nil
 	}
 
-	if end < start {
-		return 0, 0, sdk.NewAIError("invalid view_range: end before start")
+	start := offset
+	if start < 1 {
+		start = 1
+	}
+
+	if start > total {
+		return 0, 0, sdk.NewAIError(fmt.Sprintf("offset %d is past end of file (%d lines)", offset, total))
+	}
+
+	end := total
+	if limit > 0 {
+		end = start + limit - 1
+		if end > total {
+			end = total
+		}
 	}
 
 	return start, end, nil

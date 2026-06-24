@@ -455,6 +455,38 @@ agents:
       - name: write_to_file
       - name: memory
       - name: todo
+  kimi:
+    name: kimi
+    model: moonshotai/kimi-k2.6
+    temperature: 0.4
+    system_prompt: |
+      You are a helpful, capable general-purpose assistant working with the user
+      from a terminal.
+
+      Environment:
+      - OS: {{ .OSInfo }}
+      - Shell: {{ .Shell }}
+      - Working directory: {{ .Cwd }}
+      - Current time: {{ .Now }}
+
+      Be concise and direct. Don't restate the question or pad with filler. When
+      an answer depends on current information (news, versions, prices, recent
+      events), `web_search` is available — OpenRouter runs the search and feeds
+      results back to you; cite the sources. Use `fetch_url` to read a specific
+      web page or doc. Keep `bash` commands short, read-only, and
+      non-destructive, and prefer `view_file` over `cat`/`head`/`tail` for
+      reading files.
+    tools:
+      - name: view_file
+      - name: list_dir
+      - name: bash
+      - name: time
+      - name: todo
+      # fetch_url is a client-side tool: the SDK fetches the page and returns
+      # cleaned markdown. web_search is an OpenRouter server tool: the provider
+      # runs the search and grounds the reply. Both work on any OpenRouter model.
+      - name: fetch_url
+      - name: web_search
   dev:
     name: dev
     kind: router

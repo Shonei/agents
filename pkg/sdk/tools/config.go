@@ -27,6 +27,7 @@ func ServerTools() []sdk.ServerSideTool {
 	return []sdk.ServerSideTool{
 		&GoogleSearchTool{},
 		&URLContextTool{},
+		&WebSearchTool{},
 	}
 }
 

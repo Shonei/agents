@@ -10,6 +10,7 @@ import (
 	"github.com/Shonei/agents/pkg/sdk"
 	"github.com/Shonei/agents/pkg/sdk/audit"
 	"github.com/Shonei/agents/pkg/sdk/gemini"
+	"github.com/Shonei/agents/pkg/sdk/openrouter"
 	"github.com/Shonei/agents/pkg/sdk/tools"
 	"github.com/Shonei/agents/pkg/utils"
 )
@@ -95,37 +96,8 @@ func (a *engage) Run(cmd *cobra.Command, args []string) {
 // a new audit user session — used for sub-agents owned by a router so
 // the whole router conversation lives in a single audit session.
 func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silentPrompt bool, depth int, parentSessionID string) *sdk.AI {
-	if !strings.Contains(strings.ToLower(agent.Model), "gemini") {
-		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
-	}
-
-	opts := []gemini.AgentOption{
-		gemini.WithAPIKey(a.configFactory.GetGeminiAPIKey()),
-		gemini.WithModel(agent.Model),
-	}
-
-	if agent.ThinkingEnabled {
-		opts = append(opts, gemini.WithThinking())
-	}
-
-	if agent.MaxTokens != nil {
-		opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
-	}
-
-	if agent.MaxContextTokens != nil {
-		opts = append(opts, gemini.WithMaxContextTokens(*agent.MaxContextTokens))
-	}
-
-	if agent.Temperature != nil {
-		opts = append(opts, gemini.WithTemperature(*agent.Temperature))
-	}
-
-	if agent.ResponseModalities != nil {
-		opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
-	}
-
 	aiAudit := audit.NewAudit(auditLogger)
-	aiSDK := sdk.NewAI(gemini.NewAgent(opts...), aiAudit)
+	aiSDK := sdk.NewAI(a.newModelAgent(agent), aiAudit)
 	aiSDK.SetHideThinking(a.configFactory.Config.HideThinking)
 	aiSDK.SetHideGrounding(a.configFactory.Config.HideGrounding)
 
@@ -227,10 +199,7 @@ func (a *engage) buildRouter(name string, agent config.Agent, auditLogger audit.
 		meta = append(meta, sdk.RouteMeta{Agent: route.Agent, When: route.When})
 	}
 
-	classifierAgent := gemini.NewAgent(
-		gemini.WithAPIKey(a.configFactory.GetGeminiAPIKey()),
-		gemini.WithModel(agent.Classifier.Model),
-	)
+	classifierAgent := a.newModelAgent(config.Agent{Model: agent.Classifier.Model})
 
 	routerAudit := audit.NewAudit(auditLogger)
 	routerAudit.User(sdk.SynthesizeRouterPrompt(name, meta, routes, agent.Classifier.Model), "")
@@ -244,6 +213,77 @@ func (a *engage) buildRouter(name string, agent config.Agent, auditLogger audit.
 		agent.Classifier.ConfidenceThreshold,
 		routerAudit,
 	)
+}
+
+// newModelAgent constructs the right provider-backed sdk.Agent for the given
+// agent config based on its model string. OpenRouter model IDs are namespaced
+// as "<provider>/<model>" (and so contain a slash); native Gemini IDs contain
+// "gemini". Anything else is unsupported.
+func (a *engage) newModelAgent(agent config.Agent) sdk.Agent {
+	switch {
+	case strings.Contains(agent.Model, "/"):
+		return a.newOpenRouterAgent(agent)
+	case strings.Contains(strings.ToLower(agent.Model), "gemini"):
+		return a.newGeminiAgent(agent)
+	default:
+		utils.NewExitError().WithMessage(fmt.Sprintf("unsupported model: %s", agent.Model)).Done()
+
+		return nil
+	}
+}
+
+func (a *engage) newGeminiAgent(agent config.Agent) sdk.Agent {
+	opts := []gemini.AgentOption{
+		gemini.WithAPIKey(a.configFactory.GetGeminiAPIKey()),
+		gemini.WithModel(agent.Model),
+	}
+
+	if agent.ThinkingEnabled {
+		opts = append(opts, gemini.WithThinking())
+	}
+
+	if agent.MaxTokens != nil {
+		opts = append(opts, gemini.WithMaxTokens(*agent.MaxTokens))
+	}
+
+	if agent.MaxContextTokens != nil {
+		opts = append(opts, gemini.WithMaxContextTokens(*agent.MaxContextTokens))
+	}
+
+	if agent.Temperature != nil {
+		opts = append(opts, gemini.WithTemperature(*agent.Temperature))
+	}
+
+	if agent.ResponseModalities != nil {
+		opts = append(opts, gemini.WithResponseModalities(agent.ResponseModalities))
+	}
+
+	return gemini.NewAgent(opts...)
+}
+
+func (a *engage) newOpenRouterAgent(agent config.Agent) sdk.Agent {
+	opts := []openrouter.AgentOption{
+		openrouter.WithAPIKey(a.configFactory.GetOpenRouterAPIKey()),
+		openrouter.WithModel(agent.Model),
+	}
+
+	if agent.ThinkingEnabled {
+		opts = append(opts, openrouter.WithThinking())
+	}
+
+	if agent.MaxTokens != nil {
+		opts = append(opts, openrouter.WithMaxTokens(*agent.MaxTokens))
+	}
+
+	if agent.MaxContextTokens != nil {
+		opts = append(opts, openrouter.WithMaxContextTokens(*agent.MaxContextTokens))
+	}
+
+	if agent.Temperature != nil {
+		opts = append(opts, openrouter.WithTemperature(*agent.Temperature))
+	}
+
+	return openrouter.NewAgent(opts...)
 }
 
 func findAITool(name string) sdk.AITool {

@@ -96,13 +96,14 @@ func (a *Agent) IsRouter() bool {
 }
 
 type Config struct {
-	GeminiAPIKey  string            `yaml:"gemini_api_key"`
-	GitHubToken   string            `yaml:"github_token"`
-	Agents        map[string]Agent  `yaml:"agents"`
-	AuditConfig   audit.AuditConfig `yaml:"audit"`
-	DBPath        string            `yaml:"db_path"`
-	HideThinking  bool              `yaml:"hide_thinking"`
-	HideGrounding bool              `yaml:"hide_grounding"`
+	GeminiAPIKey     string            `yaml:"gemini_api_key"`
+	OpenRouterAPIKey string            `yaml:"openrouter_api_key"`
+	GitHubToken      string            `yaml:"github_token"`
+	Agents           map[string]Agent  `yaml:"agents"`
+	AuditConfig      audit.AuditConfig `yaml:"audit"`
+	DBPath           string            `yaml:"db_path"`
+	HideThinking     bool              `yaml:"hide_thinking"`
+	HideGrounding    bool              `yaml:"hide_grounding"`
 }
 
 func NewConfigFactory() *ConfigFactory {
@@ -184,6 +185,14 @@ func (c *ConfigFactory) GetGeminiAPIKey() string {
 	}
 
 	return c.Config.GeminiAPIKey
+}
+
+func (c *ConfigFactory) GetOpenRouterAPIKey() string {
+	if key := os.Getenv("OPENROUTER_API_KEY"); key != "" {
+		return key
+	}
+
+	return c.Config.OpenRouterAPIKey
 }
 
 func (c *ConfigFactory) GetGitHubToken() string {

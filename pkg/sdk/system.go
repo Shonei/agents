@@ -153,21 +153,22 @@ func RenderPrompt(prompt string, tools []AITool) (string, error) {
 		existingNames[baseType.Field(i).Name] = true
 	}
 
-	// Dynamically create a struct that embeds SystemPromptBuilder and adds fields for contributors
-	fields := []reflect.StructField{
-		{
-			Name:      "SystemPromptBuilder",
-			Type:      reflect.TypeOf(SystemPromptBuilder{}),
-			Anonymous: true,
-		},
+	// reflect.StructOf does not generate wrapper methods for embedded fields,
+	// so a dynamic struct embedding SystemPromptBuilder cannot expose its
+	// helper methods (Cwd, OSInfo, …) to the template. Render against a map
+	// instead: the no-argument helpers are pre-evaluated to their results, the
+	// single argument-taking helper (DirList) is exposed as a callable func
+	// value, and each contributor adds its own capitalized key.
+	data := map[string]any{
+		"Cwd":         builder.Cwd(),
+		"Now":         builder.Now(),
+		"OSInfo":      builder.OSInfo(),
+		"Shell":       builder.Shell(),
+		"RepoContext": builder.RepoContext(),
+		"DirList":     builder.DirList,
 	}
 
 	seenKeys := make(map[string]bool)
-	type keyWithVal struct {
-		key  string
-		data any
-	}
-	var mappedContributors []keyWithVal
 
 	for _, tc := range contributors {
 		rawKey := tc.TemplateKey()
@@ -193,39 +194,15 @@ func RenderPrompt(prompt string, tools []AITool) (string, error) {
 				val = results[0].Interface()
 			}
 		}
-
-		var fieldType reflect.Type
 		if val == nil {
-			fieldType = reflect.TypeOf("")
 			val = ""
-		} else {
-			fieldType = reflect.TypeOf(val)
 		}
 
-		mappedContributors = append(mappedContributors, keyWithVal{
-			key:  key,
-			data: val,
-		})
-
-		fields = append(fields, reflect.StructField{
-			Name: key,
-			Type: fieldType,
-		})
-	}
-
-	dynamicType := reflect.StructOf(fields)
-	dynamicValue := reflect.New(dynamicType).Elem()
-
-	// Set the embedded SystemPromptBuilder
-	dynamicValue.FieldByName("SystemPromptBuilder").Set(reflect.ValueOf(*builder))
-
-	// Set the contributor fields
-	for _, mc := range mappedContributors {
-		dynamicValue.FieldByName(mc.key).Set(reflect.ValueOf(mc.data))
+		data[key] = val
 	}
 
 	var b strings.Builder
-	if err := pt.Execute(&b, dynamicValue.Interface()); err != nil {
+	if err := pt.Execute(&b, data); err != nil {
 		return "", fmt.Errorf("failed to render prompt: %w", err)
 	}
 

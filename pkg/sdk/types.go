@@ -134,6 +134,11 @@ const (
 const (
 	ServerToolGoogleSearch = "google_search"
 	ServerToolURLContext   = "url_context"
+	// ServerToolWebSearch is a provider-agnostic web-search server tool. It is
+	// currently handled by the OpenRouter provider (mapped to the
+	// "openrouter:web_search" server tool); providers that do not support it
+	// ignore it.
+	ServerToolWebSearch = "web_search"
 )
 
 // Role constants.

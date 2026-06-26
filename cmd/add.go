@@ -54,7 +54,7 @@ func NewAdd(c *config.ConfigFactory) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&a.name, "name", "", "Name of the agent")
-	flags.StringVar(&a.systemPrompts, "system-prompt", "", "System prompts for the agent. You can use go template syntax to access functions like {{ .Cwd }}. Available functions: ["+strings.Join(promptFunctions, ", ")+"]")
+	flags.StringVar(&a.systemPrompts, "system-prompt", "", "System prompts for the agent. You can use go template syntax to access functions like {{ Cwd }}. Available functions: ["+strings.Join(promptFunctions, ", ")+"]")
 	flags.StringVar(&a.model, "model", "", "Model to use for the agent ["+strings.Join(modelNames, " ")+"]")
 	flags.StringSliceVar(&a.tools, "tools", []string{}, "Tools to use for the agent ["+strings.Join(tools.ToolNames(), " ")+"]")
 

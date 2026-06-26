@@ -19,6 +19,10 @@ type Agent interface {
 	// conversation compaction. A value of 0 disables compaction.
 	MaxContextTokens() int
 
+	// MaxContextTurns returns the number of recent user turns to preserve
+	// verbatim when compacting. A value of 0 falls back to the default.
+	MaxContextTurns() int
+
 	// CreateMessage sends a message request to the LLM API
 	CreateMessage(request CreateMessageRequest) (*MessageResponse, error)
 }

@@ -117,11 +117,6 @@ func (s *SystemPromptBuilder) GetAvailableFunctions() []string {
 }
 
 func RenderPrompt(prompt string, tools []AITool) (string, error) {
-	pt, err := template.New("system_prompt").Parse(prompt)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse prompt: %w", err)
-	}
-
 	// Base builder
 	builder := &SystemPromptBuilder{}
 
@@ -134,6 +129,11 @@ func RenderPrompt(prompt string, tools []AITool) (string, error) {
 	}
 
 	if len(contributors) == 0 {
+		pt, err := template.New("system_prompt").Parse(prompt)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse prompt: %w", err)
+		}
+
 		var b strings.Builder
 		if err := pt.Execute(&b, builder); err != nil {
 			return "", fmt.Errorf("failed to render prompt: %w", err)
@@ -153,18 +153,18 @@ func RenderPrompt(prompt string, tools []AITool) (string, error) {
 		existingNames[baseType.Field(i).Name] = true
 	}
 
-	// reflect.StructOf does not generate wrapper methods for embedded fields,
-	// so a dynamic struct embedding SystemPromptBuilder cannot expose its
-	// helper methods (Cwd, OSInfo, …) to the template. Render against a map
-	// instead: the no-argument helpers are pre-evaluated to their results, the
-	// single argument-taking helper (DirList) is exposed as a callable func
-	// value, and each contributor adds its own capitalized key.
-	data := map[string]any{
-		"Cwd":         builder.Cwd(),
-		"Now":         builder.Now(),
-		"OSInfo":      builder.OSInfo(),
-		"Shell":       builder.Shell(),
-		"RepoContext": builder.RepoContext(),
+	// Register built-in helpers and contributor data as template functions.
+	// We use Funcs rather than a data map because Go templates only allow
+	// argument-taking calls for Funcs-registered functions or methods on the
+	// data value. Storing a function in a map/struct field (e.g. .DirList) does
+	// not support arguments, so {{ DirList 1 }} would fail. Any future helper
+	// that accepts arguments must be added here as a function.
+	data := template.FuncMap{
+		"Cwd":         builder.Cwd,
+		"Now":         builder.Now,
+		"OSInfo":      builder.OSInfo,
+		"Shell":       builder.Shell,
+		"RepoContext": builder.RepoContext,
 		"DirList":     builder.DirList,
 	}
 
@@ -185,24 +185,16 @@ func RenderPrompt(prompt string, tools []AITool) (string, error) {
 			return "", fmt.Errorf("duplicate template key %q among registered tools", key)
 		}
 		seenKeys[key] = true
+		data[key] = tc.TemplateData
+	}
 
-		val := tc.TemplateData()
-		if val != nil {
-			valVal := reflect.ValueOf(val)
-			if valVal.Kind() == reflect.Func && valVal.Type().NumIn() == 0 && valVal.Type().NumOut() == 1 {
-				results := valVal.Call(nil)
-				val = results[0].Interface()
-			}
-		}
-		if val == nil {
-			val = ""
-		}
-
-		data[key] = val
+	pt, err := template.New("system_prompt").Funcs(data).Parse(prompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse prompt: %w", err)
 	}
 
 	var b strings.Builder
-	if err := pt.Execute(&b, data); err != nil {
+	if err := pt.Execute(&b, nil); err != nil {
 		return "", fmt.Errorf("failed to render prompt: %w", err)
 	}
 

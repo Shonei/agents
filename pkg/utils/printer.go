@@ -47,7 +47,7 @@ func Print(resource any, format string) {
 
 		// Determine element type (follow pointer)
 		et := t.Elem()
-		if et.Kind() == reflect.Ptr {
+		if et.Kind() == reflect.Pointer {
 			et = et.Elem()
 		}
 
@@ -68,7 +68,7 @@ func Print(resource any, format string) {
 
 	// Non-slice printing
 	val := v
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = valueDeref(val)
 	}
 
@@ -197,7 +197,7 @@ func getHeadersForType(t reflect.Type) []string {
 
 // valueDeref returns the value with one level of pointer dereference if needed
 func valueDeref(v reflect.Value) reflect.Value {
-	if v.IsValid() && v.Kind() == reflect.Ptr && !v.IsNil() {
+	if v.IsValid() && v.Kind() == reflect.Pointer && !v.IsNil() {
 		return v.Elem()
 	}
 
@@ -213,7 +213,7 @@ func fieldAsString(v reflect.Value, fieldName string) string {
 	// Unwrap interfaces and pointers on the input value until we hit the concrete value
 	for {
 		switch v.Kind() {
-		case reflect.Interface, reflect.Ptr:
+		case reflect.Interface, reflect.Pointer:
 			if v.IsNil() {
 				return ""
 			}

@@ -11,7 +11,7 @@ agents:
       push commits, open follow-up PRs, or modify files. You only read, analyze, and
       leave high-quality feedback via `github_pr_review`.
 
-      {{ .RepoContext }}
+      {{ RepoContext }}
       ## Hard rules
       - NEVER edit files. You intentionally have no write/edit tools.
       - NEVER `git commit`, `git push`, force-push, rebase, or otherwise mutate
@@ -114,9 +114,9 @@ agents:
       sees your output — only the calling agent does — so optimize for
       density and evidence, not tone.
 
-      Working directory: {{ .Cwd }}
+      Working directory: {{ Cwd }}
 
-      {{ .RepoContext }}
+      {{ RepoContext }}
 
       ## What you do
 
@@ -183,6 +183,7 @@ agents:
     model: gemini-3.1-pro-preview
     max_tokens: 1000000
     max_context_tokens: 300000
+    max_context_turns: 2
     temperature: 0.2
     response_modalities: [TEXT]
     thinking_enabled: true
@@ -190,17 +191,17 @@ agents:
       You are a senior software engineer pair-programming with the user from a terminal.
 
       Environment:
-      - OS: {{ .OSInfo }}
-      - Shell: {{ .Shell }}
-      - Working directory: {{ .Cwd }}
-      - Current time: {{ .Now }}
+      - OS: {{ OSInfo }}
+      - Shell: {{ Shell }}
+      - Working directory: {{ Cwd }}
+      - Current time: {{ Now }}
 
-      {{ .Plan }}
+      {{ Plan }}
 
       Top-level layout:
-      {{ .DirList 1 }}
+      {{ DirList 1 }}
 
-      {{ .RepoContext }}
+      {{ RepoContext }}
       ## Operating mode: balanced, not action-happy
 
       Every request goes through a quick mental triage before you touch any tool.
@@ -218,7 +219,7 @@ agents:
            prefer. → Ask before doing.
 
       2. **For non-trivial work, follow plan → confirm → implement → verify:**
-         - **If a global plan is already active (provided in `{{ .Plan }}`)**:
+         - **If a global plan is already active (provided in `{{ Plan }}`)**:
            a. Follow the active global plan steps diligently. Do NOT invent a new plan.
            b. Before starting a step, update its status to `in_progress` using the `plan` tool's `update_step` action.
            c. Once a step is fully implemented and verified, update its status to `completed` using the `plan` tool's `update_step` action.
@@ -305,16 +306,16 @@ agents:
       reads the same plan back from the injected plan state below.
 
       Environment:
-      - Working directory: {{ .Cwd }}
-      - Current time: {{ .Now }}
+      - Working directory: {{ Cwd }}
+      - Current time: {{ Now }}
 
       Current plan state (may be empty):
-      {{ .Plan }}
+      {{ Plan }}
 
       Repo layout:
-      {{ .DirList 1 }}
+      {{ DirList 1 }}
 
-      {{ .RepoContext }}
+      {{ RepoContext }}
 
       ## Triage first
       - *Trivial / unambiguous* (typo, one-line tweak, obvious question):
@@ -398,10 +399,10 @@ agents:
       brainstorming, explaining concepts, etc.
 
       Environment:
-      - OS: {{ .OSInfo }}
-      - Shell: {{ .Shell }}
-      - Working directory: {{ .Cwd }}
-      - Current time: {{ .Now }}
+      - OS: {{ OSInfo }}
+      - Shell: {{ Shell }}
+      - Working directory: {{ Cwd }}
+      - Current time: {{ Now }}
 
       ## Defaults
 
@@ -464,10 +465,10 @@ agents:
       from a terminal.
 
       Environment:
-      - OS: {{ .OSInfo }}
-      - Shell: {{ .Shell }}
-      - Working directory: {{ .Cwd }}
-      - Current time: {{ .Now }}
+      - OS: {{ OSInfo }}
+      - Shell: {{ Shell }}
+      - Working directory: {{ Cwd }}
+      - Current time: {{ Now }}
 
       Be concise and direct. Don't restate the question or pad with filler. When
       an answer depends on current information (news, versions, prices, recent

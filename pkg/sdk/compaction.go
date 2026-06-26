@@ -14,7 +14,7 @@ const (
 	// defaultKeepLastTurns is the number of recent user-text turn boundaries
 	// to preserve verbatim when compacting. Everything older than the cut
 	// gets summarized into a single synthetic message.
-	defaultKeepLastTurns = 4
+	defaultKeepLastTurns = 2
 
 	// summaryPrefix marks synthetic messages produced by compaction so they
 	// are easy to identify in logs and audits.
@@ -60,7 +60,12 @@ func (a *AI) maybeCompact(messages *[]InputMessage) (bool, error) {
 	}
 
 	cut := -1
-	for keep := defaultKeepLastTurns; keep >= 1; keep-- {
+	keepLastTurns := a.agent.MaxContextTurns()
+	if keepLastTurns <= 0 {
+		keepLastTurns = defaultKeepLastTurns
+	}
+
+	for keep := keepLastTurns; keep >= 1; keep-- {
 		cut = findCompactionCut(*messages, keep)
 		if cut > 0 {
 			break
@@ -100,11 +105,11 @@ func (a *AI) maybeCompact(messages *[]InputMessage) (bool, error) {
 }
 
 // findCompactionCut walks backwards through messages looking for clean turn
-// boundaries (plain user-text messages with no tool_result blocks) and
-// returns the index of the keepLastTurns-th such boundary from the end.
-// That index becomes the start of the kept tail; everything before is safe
-// to evict because it does not orphan a tool_use/tool_result pair.
-// Returns -1 when there are not enough boundaries to make a safe cut.
+// boundaries. A boundary is either a plain user-text message (cut before it)
+// or the end of a complete tool-call round, i.e. a user tool_result message
+// followed by at least one later message (cut after it). It returns the cut
+// index that preserves keepLastTurns boundaries from the end. Returns -1
+// when there are not enough boundaries to make a safe cut.
 func findCompactionCut(messages []InputMessage, keepLastTurns int) int {
 	if keepLastTurns <= 0 {
 		return -1
@@ -112,21 +117,59 @@ func findCompactionCut(messages []InputMessage, keepLastTurns int) int {
 
 	seen := 0
 	for i := len(messages) - 1; i >= 0; i-- {
-		if !isUserTextBoundary(messages[i]) {
+		if isUserTextBoundary(messages[i]) {
+			seen++
+			if seen == keepLastTurns {
+				return i
+			}
+
 			continue
 		}
 
-		seen++
-		if seen == keepLastTurns {
-			return i
+		if isToolResultBoundary(messages, i) {
+			seen++
+			if seen == keepLastTurns {
+				return i + 1
+			}
 		}
 	}
 
 	return -1
 }
 
+// isToolResultBoundary reports whether messages[i] is a user message that
+// contains only tool_result blocks and is followed by at least one later
+// message. Cutting after such a message keeps the corresponding tool_use in
+// the evicted prefix and starts the kept tail with the assistant's response,
+// which is structurally safe.
+func isToolResultBoundary(messages []InputMessage, i int) bool {
+	if i+1 >= len(messages) {
+		return false
+	}
+
+	msg := messages[i]
+	if msg.Role != RoleUser {
+		return false
+	}
+
+	blocks, ok := msg.Content.([]ContentBlock)
+	if !ok || len(blocks) == 0 {
+		return false
+	}
+
+	for _, b := range blocks {
+		if b.Type != ContentTypeToolResult {
+			return false
+		}
+	}
+
+	return true
+}
+
 // isUserTextBoundary reports whether a message is a "fresh" user message
 // (plain text, no tool_result blocks) that can safely act as a cut point.
+// Synthetic summary messages produced by compaction are excluded so they
+// can be re-summarized in later compaction passes.
 func isUserTextBoundary(msg InputMessage) bool {
 	if msg.Role != RoleUser {
 		return false
@@ -134,6 +177,10 @@ func isUserTextBoundary(msg InputMessage) bool {
 
 	switch v := msg.Content.(type) {
 	case string:
+		if strings.HasPrefix(v, summaryPrefix) {
+			return false
+		}
+
 		return true
 	case []ContentBlock:
 		for _, b := range v {

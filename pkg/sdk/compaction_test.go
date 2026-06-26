@@ -66,9 +66,9 @@ func TestFindCompactionCut(t *testing.T) {
 				assistantText("a3"),
 			},
 			keepLastTurns: 2,
-			// boundaries from end: u3 (1st), u2 (2nd). Tool-result user msg
-			// is skipped, so cut lands on u2 keeping the whole tool pair.
-			want: 2,
+			// boundaries from end: u3 (1st), end of tool round (2nd).
+			// Cut after the tool_result keeps the whole tool pair in tail.
+			want: 5,
 		},
 		{
 			name: "K larger than available boundaries returns -1",
@@ -123,6 +123,33 @@ func TestFindCompactionCut(t *testing.T) {
 			keepLastTurns: 2,
 			// boundaries from end: u3, u2. Cut at u2 index (6).
 			want: 6,
+		},
+		{
+			name: "tool result boundary allows cut inside a long turn",
+			messages: []InputMessage{
+				userText("u1"),
+				assistantToolUse("bash", "t1"),
+				userToolResult("t1", "r1"),
+				assistantToolUse("bash", "t2"),
+				userToolResult("t2", "r2"),
+				assistantText("a1"),
+			},
+			keepLastTurns: 1,
+			// Only boundary is the end of the last tool round; cut after it.
+			want: 5,
+		},
+		{
+			name: "synthetic summary is not a boundary",
+			messages: []InputMessage{
+				NewTextMessage(RoleUser, summaryPrefix+"older summary"),
+				userText("u1"),
+				assistantText("a1"),
+				userText("u2"),
+				assistantText("a2"),
+			},
+			keepLastTurns: 2,
+			// boundaries from end: u2, u1. Summary is ignored.
+			want: 1,
 		},
 		{
 			name: "trailing tool result does not count as boundary",
@@ -201,6 +228,11 @@ func TestIsUserTextBoundary(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "synthetic summary message is not a boundary",
+			msg:  NewTextMessage(RoleUser, summaryPrefix+"older summary"),
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -208,6 +240,87 @@ func TestIsUserTextBoundary(t *testing.T) {
 			got := isUserTextBoundary(tt.msg)
 			if got != tt.want {
 				t.Errorf("isUserTextBoundary() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsToolResultBoundary(t *testing.T) {
+	assistantToolUse := func(name, id string) InputMessage {
+		return InputMessage{
+			Role: RoleAssistant,
+			Content: []ContentBlock{
+				{Type: ContentTypeToolUse, Name: name, ID: id},
+			},
+		}
+	}
+
+	userToolResult := func(id, content string) InputMessage {
+		return InputMessage{
+			Role: RoleUser,
+			Content: []ContentBlock{
+				NewToolResultContentBlock(id, content, false),
+			},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		messages []InputMessage
+		i        int
+		want     bool
+	}{
+		{
+			name: "pure tool_result with following message",
+			messages: []InputMessage{
+				assistantToolUse("bash", "t1"),
+				userToolResult("t1", "ok"),
+				NewTextMessage(RoleAssistant, "done"),
+			},
+			i:    1,
+			want: true,
+		},
+		{
+			name: "trailing tool_result cannot be cut after",
+			messages: []InputMessage{
+				assistantToolUse("bash", "t1"),
+				userToolResult("t1", "ok"),
+			},
+			i:    1,
+			want: false,
+		},
+		{
+			name: "user text is not a tool_result boundary",
+			messages: []InputMessage{
+				NewTextMessage(RoleUser, "hi"),
+				NewTextMessage(RoleAssistant, "hello"),
+			},
+			i:    0,
+			want: false,
+		},
+		{
+			name: "mixed content is not a tool_result boundary",
+			messages: []InputMessage{
+				assistantToolUse("bash", "t1"),
+				{
+					Role: RoleUser,
+					Content: []ContentBlock{
+						{Type: ContentTypeText, Text: "hi"},
+						NewToolResultContentBlock("t1", "ok", false),
+					},
+				},
+				NewTextMessage(RoleAssistant, "done"),
+			},
+			i:    1,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isToolResultBoundary(tt.messages, tt.i)
+			if got != tt.want {
+				t.Errorf("isToolResultBoundary() = %v, want %v", got, tt.want)
 			}
 		})
 	}

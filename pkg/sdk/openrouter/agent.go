@@ -27,6 +27,7 @@ type Agent struct {
 	model            string
 	maxTokens        int
 	maxContextTokens int
+	maxContextTurns  int
 	temperature      float64
 	thinkingEnabled  bool
 	cachingEnabled   bool
@@ -71,6 +72,14 @@ func WithMaxContextTokens(maxContextTokens int) AgentOption {
 	}
 }
 
+// WithMaxContextTurns sets the number of recent user turns to preserve verbatim
+// when compacting. A value of 0 uses the default.
+func WithMaxContextTurns(maxContextTurns int) AgentOption {
+	return func(a *Agent) {
+		a.maxContextTurns = maxContextTurns
+	}
+}
+
 // WithTemperature sets the sampling temperature.
 func WithTemperature(temperature float64) AgentOption {
 	return func(a *Agent) {
@@ -100,6 +109,12 @@ func (a *Agent) MaxTokens() int {
 // agent. A value of 0 disables conversation compaction.
 func (a *Agent) MaxContextTokens() int {
 	return a.maxContextTokens
+}
+
+// MaxContextTurns returns the number of recent user turns to preserve verbatim
+// when compacting. A value of 0 means the caller should use its default.
+func (a *Agent) MaxContextTurns() int {
+	return a.maxContextTurns
 }
 
 // NewAgent creates a new OpenRouter Agent with the given options. Prompt
@@ -155,8 +170,11 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*ChatCompletionReq
 	openRouterReq := &ChatCompletionRequest{
 		Model:       a.model,
 		Messages:    []Message{},
-		MaxTokens:   a.maxTokens,
 		Temperature: a.temperature,
+	}
+
+	if a.maxTokens > 0 {
+		openRouterReq.MaxTokens = &a.maxTokens
 	}
 
 	if a.thinkingEnabled {
@@ -207,11 +225,15 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*ChatCompletionReq
 	}
 
 	// Provider-executed server tools. OpenRouter runs these itself and feeds
-	// the results back to the model. Only web search is supported today;
-	// other kinds (e.g. Gemini's google_search) are ignored here.
+	// the results back to the model. Only web search and web fetch are
+	// supported today; other kinds (e.g. Gemini's google_search) are ignored
+	// here.
 	for _, st := range req.ServerTools {
-		if st.Name == sdk.ServerToolWebSearch {
+		switch st.Name {
+		case sdk.ServerToolWebSearch:
 			openRouterReq.Tools = append(openRouterReq.Tools, Tool{Type: ToolTypeWebSearch})
+		case sdk.ServerToolWebFetch:
+			openRouterReq.Tools = append(openRouterReq.Tools, Tool{Type: ToolTypeWebFetch})
 		}
 	}
 
@@ -416,6 +438,7 @@ func stringifyToolResult(content any) string {
 		if b, err := json.Marshal(v); err == nil {
 			return string(b)
 		}
+
 		return fmt.Sprintf("%v", v)
 	}
 }

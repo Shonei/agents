@@ -139,6 +139,11 @@ const (
 	// "openrouter:web_search" server tool); providers that do not support it
 	// ignore it.
 	ServerToolWebSearch = "web_search"
+	// ServerToolWebFetch is a provider-agnostic web-fetch server tool. It is
+	// currently handled by the OpenRouter provider (mapped to the
+	// "openrouter:web_fetch" server tool); providers that do not support it
+	// ignore it.
+	ServerToolWebFetch = "web_fetch"
 )
 
 // Role constants.

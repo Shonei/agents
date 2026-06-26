@@ -25,6 +25,7 @@ type Agent struct {
 	model              string
 	maxTokens          int
 	maxContextTokens   int
+	maxContextTurns    int
 	temperature        float64
 	embeddingDim       int
 	responseModalities []string
@@ -69,6 +70,14 @@ func WithMaxContextTokens(maxContextTokens int) AgentOption {
 	}
 }
 
+// WithMaxContextTurns sets the number of recent user turns to preserve verbatim
+// when compacting. A value of 0 uses the default.
+func WithMaxContextTurns(maxContextTurns int) AgentOption {
+	return func(a *Agent) {
+		a.maxContextTurns = maxContextTurns
+	}
+}
+
 func WithTemperature(temperature float64) AgentOption {
 	return func(a *Agent) {
 		a.temperature = temperature
@@ -101,6 +110,12 @@ func (a *Agent) MaxTokens() int {
 // agent. A value of 0 disables conversation compaction.
 func (a *Agent) MaxContextTokens() int {
 	return a.maxContextTokens
+}
+
+// MaxContextTurns returns the number of recent user turns to preserve verbatim
+// when compacting. A value of 0 means the caller should use its default.
+func (a *Agent) MaxContextTurns() int {
+	return a.maxContextTurns
 }
 
 // NewAgent creates a new Agent with the given options

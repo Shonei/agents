@@ -250,6 +250,10 @@ func (a *engage) newGeminiAgent(agent config.Agent) sdk.Agent {
 		opts = append(opts, gemini.WithMaxContextTokens(*agent.MaxContextTokens))
 	}
 
+	if agent.MaxContextTurns != nil {
+		opts = append(opts, gemini.WithMaxContextTurns(*agent.MaxContextTurns))
+	}
+
 	if agent.Temperature != nil {
 		opts = append(opts, gemini.WithTemperature(*agent.Temperature))
 	}
@@ -277,6 +281,10 @@ func (a *engage) newOpenRouterAgent(agent config.Agent) sdk.Agent {
 
 	if agent.MaxContextTokens != nil {
 		opts = append(opts, openrouter.WithMaxContextTokens(*agent.MaxContextTokens))
+	}
+
+	if agent.MaxContextTurns != nil {
+		opts = append(opts, openrouter.WithMaxContextTurns(*agent.MaxContextTurns))
 	}
 
 	if agent.Temperature != nil {

@@ -109,9 +109,9 @@ func TestRenderPrompt_ValidationAndCapitalization(t *testing.T) {
 	// 1. Capitalization test (lowercase "my_var" becomes "My_var")
 	contrib1 := &mockContributor{
 		key:  "my_var",
-		data: func() string { return "capitalized_success" },
+		data: "capitalized_success",
 	}
-	rendered, err := RenderPrompt("{{ .My_var }}", []AITool{contrib1})
+	rendered, err := RenderPrompt("{{ My_var }}", []AITool{contrib1})
 	if err != nil {
 		t.Fatalf("expected no error for capitalized key rendering, got: %v", err)
 	}
@@ -122,9 +122,9 @@ func TestRenderPrompt_ValidationAndCapitalization(t *testing.T) {
 	// 2. Conflict with existing method test ("cwd" becomes "Cwd", conflicts with Cwd() method)
 	contrib2 := &mockContributor{
 		key:  "cwd",
-		data: func() string { return "conflict" },
+		data: "conflict",
 	}
-	_, err = RenderPrompt("{{ .Cwd }}", []AITool{contrib2})
+	_, err = RenderPrompt("{{ Cwd }}", []AITool{contrib2})
 	if err == nil {
 		t.Error("expected error due to conflict with existing Cwd method, got nil")
 	} else if !strings.Contains(err.Error(), "conflicts with existing SystemPromptBuilder") {
@@ -140,7 +140,7 @@ func TestRenderPrompt_ValidationAndCapitalization(t *testing.T) {
 		key:  "Custom",
 		data: "val2",
 	}
-	_, err = RenderPrompt("{{ .Custom }}", []AITool{contrib3a, contrib3b})
+	_, err = RenderPrompt("{{ Custom }}", []AITool{contrib3a, contrib3b})
 	if err == nil {
 		t.Error("expected error due to duplicate template keys, got nil")
 	} else if !strings.Contains(err.Error(), "duplicate template key") {

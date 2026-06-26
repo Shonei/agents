@@ -28,6 +28,7 @@ func ServerTools() []sdk.ServerSideTool {
 		&GoogleSearchTool{},
 		&URLContextTool{},
 		&WebSearchTool{},
+		&WebFetchTool{},
 	}
 }
 

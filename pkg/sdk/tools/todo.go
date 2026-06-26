@@ -40,13 +40,11 @@ func (t *TodoTool) TemplateKey() string {
 }
 
 func (t *TodoTool) TemplateData() any {
-	return func() string {
-		if t.state == nil {
-			return ""
-		}
-
-		return t.state.List()
+	if t.state == nil {
+		return ""
 	}
+
+	return t.state.List()
 }
 
 func (t *TodoTool) InputSchema() map[string]interface{} {

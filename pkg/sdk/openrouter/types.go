@@ -20,6 +20,11 @@ const (
 // server-side by OpenRouter; the model decides when to search.
 const ToolTypeWebSearch = "openrouter:web_search"
 
+// ToolTypeWebFetch is the OpenRouter server-tool type that fetches the content
+// of a URL. It is added to the request's tools array and executed server-side
+// by OpenRouter.
+const ToolTypeWebFetch = "openrouter:web_fetch"
+
 // Common OpenRouter model identifiers. OpenRouter model IDs are always
 // namespaced as "<provider>/<model>". These are convenience constants; any
 // valid OpenRouter model slug can be passed via configuration instead.
@@ -41,7 +46,7 @@ type ChatCompletionRequest struct {
 	Messages    []Message        `json:"messages"`
 	Tools       []Tool           `json:"tools,omitempty"`
 	ToolChoice  any              `json:"tool_choice,omitempty"`
-	MaxTokens   int              `json:"max_tokens,omitempty"`
+	MaxTokens   *int             `json:"max_tokens,omitempty"`
 	Temperature float64          `json:"temperature,omitempty"`
 	Reasoning   *ReasoningConfig `json:"reasoning,omitempty"`
 	Stream      bool             `json:"stream,omitempty"`

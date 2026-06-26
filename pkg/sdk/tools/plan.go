@@ -40,13 +40,11 @@ func (t *PlanTool) TemplateKey() string {
 }
 
 func (t *PlanTool) TemplateData() any {
-	return func() string {
-		if t.state == nil {
-			return ""
-		}
-
-		return t.state.Format()
+	if t.state == nil {
+		return ""
 	}
+
+	return t.state.Format()
 }
 
 func (t *PlanTool) InputSchema() map[string]interface{} {

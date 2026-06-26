@@ -22,6 +22,7 @@ type fakeAgent struct {
 func (f *fakeAgent) Model() string         { return f.name }
 func (f *fakeAgent) MaxTokens() int        { return 1024 }
 func (f *fakeAgent) MaxContextTokens() int { return 0 }
+func (f *fakeAgent) MaxContextTurns() int  { return 0 }
 
 func (f *fakeAgent) CreateMessage(req CreateMessageRequest) (*MessageResponse, error) {
 	f.requests = append(f.requests, req)

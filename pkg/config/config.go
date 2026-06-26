@@ -39,6 +39,7 @@ type Agent struct {
 	// we will deal with this later
 	MaxTokens          *int       `yaml:"max_tokens"`
 	MaxContextTokens   *int       `yaml:"max_context_tokens"`
+	MaxContextTurns    *int       `yaml:"max_context_turns"`
 	Temperature        *float64   `yaml:"temperature"`
 	ResponseModalities []string   `yaml:"response_modalities"`
 	ThinkingEnabled    bool       `yaml:"thinking_enabled"`

@@ -155,6 +155,10 @@ func (t *StrReplaceEditorTool) handleStrReplace(path, content string, in StrRepl
 
 	newContent := strings.Replace(content, in.OldStr1, in.NewStr1, 1)
 
+	// #nosec G703 - the model-supplied path is the whole point of an editor
+	// tool. Call() already required it to resolve to an existing regular file,
+	// so this overwrites a file the agent could equally have read; it cannot
+	// create one at an arbitrary location.
 	if err := os.WriteFile(path, []byte(newContent), 0o600); err != nil {
 		return "", fmt.Errorf("failed to write updated file: %w", err)
 	}

@@ -181,7 +181,10 @@ agents:
   coder:
     name: coder
     model: gemini-3.1-pro-preview
-    max_tokens: 1000000
+    # max_tokens is the per-response OUTPUT cap (maps to Gemini's
+    # maxOutputTokens); max_context_tokens is the INPUT budget that triggers
+    # compaction. Don't confuse the two.
+    max_tokens: 65536
     max_context_tokens: 300000
     max_context_turns: 2
     temperature: 0.2
@@ -374,16 +377,17 @@ agents:
         session. The cross-agent handoff channel is `plan`, not `todo`.
       - `plan`: the source of truth for what the builder will execute.
     tools:
+      # Deliberately no write_to_file / str_replace_editor: the prompt's hard
+      # rules promise the planner cannot edit, and that promise should be
+      # backed by the tool grant rather than by the model's good behaviour.
       - name: view_file
       - name: list_dir
       - name: bash
       - name: todo
       - name: plan
       - name: repo-explorer
-      - name: write_to_file
       - name: google_search
       - name: url_context
-      - name: str_replace_editor
   assistant:
     name: assistant
     model: gemini-3.5-flash

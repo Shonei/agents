@@ -234,7 +234,10 @@ func readOrCreateConfig(configPath string) (*Config, error) {
 	b, err := os.ReadFile(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			createErr := os.MkdirAll(filepath.Dir(configPath), 0o600)
+			// 0o700, not 0o600: a directory needs the execute bit to be
+			// traversable, otherwise the WriteFile below cannot open a path
+			// inside it. Kept owner-only because the config holds API keys.
+			createErr := os.MkdirAll(filepath.Dir(configPath), 0o700)
 			if createErr != nil {
 				return nil, fmt.Errorf("failed to create config directory: %v", createErr)
 			}

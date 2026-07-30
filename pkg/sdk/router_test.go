@@ -17,15 +17,27 @@ type fakeAgent struct {
 	name      string
 	responses []*MessageResponse
 	requests  []CreateMessageRequest
+
+	// err, when set, is returned from every CreateMessage call.
+	err error
+	// maxContextTokens and maxContextTurns override the zero defaults for tests
+	// that need compaction to engage.
+	maxContextTokens int
+	maxContextTurns  int
 }
 
 func (f *fakeAgent) Model() string         { return f.name }
 func (f *fakeAgent) MaxTokens() int        { return 1024 }
-func (f *fakeAgent) MaxContextTokens() int { return 0 }
-func (f *fakeAgent) MaxContextTurns() int  { return 0 }
+func (f *fakeAgent) MaxContextTokens() int { return f.maxContextTokens }
+func (f *fakeAgent) MaxContextTurns() int  { return f.maxContextTurns }
 
 func (f *fakeAgent) CreateMessage(req CreateMessageRequest) (*MessageResponse, error) {
 	f.requests = append(f.requests, req)
+
+	if f.err != nil {
+		return nil, f.err
+	}
+
 	if len(f.responses) == 0 {
 		return &MessageResponse{Role: RoleAssistant}, nil
 	}

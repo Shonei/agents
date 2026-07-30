@@ -31,6 +31,14 @@ type AI struct {
 	hideGrounding   bool
 	quiet           bool
 	maxTurns        int
+
+	// rollingSummary is the compaction note currently occupying the head of
+	// the history, carried forward across passes so it is merged rather than
+	// re-summarized.
+	rollingSummary string
+	// headHeight is how many messages at the front of the history compaction
+	// owns: the pinned original request (if any) plus the summary message.
+	headHeight int
 }
 
 type AITool interface {
@@ -264,6 +272,10 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 	messages := history
 	turnCount := 0
 
+	// Once compaction has failed in this turn, stop attempting it: the input is
+	// unchanged, so retrying every iteration just repeats the cost.
+	compactionUnavailable := false
+
 	// Loop until we get a response without tool calls
 	for {
 		if turnCount >= a.maxTurns {
@@ -271,13 +283,22 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 		}
 		turnCount++
 
-		compacted, err := a.maybeCompact(&messages)
-		if err != nil {
-			return nil, err
-		}
+		if !compactionUnavailable {
+			compacted, err := a.maybeCompact(&messages)
+			switch {
+			case err != nil:
+				// Compaction is an optimization against a self-imposed budget,
+				// not a correctness requirement: max_context_tokens is normally
+				// set well below the model's real window. Losing it must not
+				// end the conversation. If the true window is exceeded the
+				// provider says so on the next call, with a better message than
+				// anything we could invent here.
+				warnf("compaction failed, continuing without it: %v", err)
 
-		if compacted {
-			a.lastInputTokens = 0
+				compactionUnavailable = true
+			case compacted:
+				a.lastInputTokens = 0
+			}
 		}
 
 		request := CreateMessageRequest{

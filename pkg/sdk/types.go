@@ -161,10 +161,13 @@ func NewTextMessage(role, text string) InputMessage {
 }
 
 // NewToolResultContentBlock creates a tool result content block.
-func NewToolResultContentBlock(toolUseID string, content interface{}, isError bool) ContentBlock {
+// name is the tool's declared name (required by providers like Gemini on
+// functionResponse); toolUseID is the per-call identifier (OpenAI tool_call_id).
+func NewToolResultContentBlock(toolUseID, name string, content interface{}, isError bool) ContentBlock {
 	return ContentBlock{
 		Type:      ContentTypeToolResult,
 		ToolUseID: toolUseID,
+		Name:      name,
 		Content:   content,
 		IsError:   isError,
 	}

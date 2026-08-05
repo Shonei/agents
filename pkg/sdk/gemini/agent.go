@@ -288,9 +288,17 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 						responseMap = map[string]interface{}{"result": block.Content}
 					}
 
+					// Gemini functionResponse.name must be the function name, not
+					// the per-call id. Fall back to ToolUseID for older history
+					// where id and name were the same string.
+					name := block.Name
+					if name == "" {
+						name = block.ToolUseID
+					}
+
 					parts = append(parts, Part{
 						FunctionResponse: &FunctionResponse{
-							Name:     block.ToolUseID, // We might need the name here, but SDK stores ID in ToolUseID for result.
+							Name:     name,
 							Response: responseMap,
 						},
 					})
@@ -362,6 +370,7 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 	candidate := resp.Candidates[0]
 
 	contentBlocks := []sdk.ResponseContentBlock{}
+	funcCallIndex := 0
 
 	for _, part := range candidate.Content.Parts {
 		if part.Thought {
@@ -383,9 +392,14 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 		}
 
 		if part.FunctionCall != nil {
+			// Gemini has no separate tool-call id. Synthesize a unique one so
+			// parallel calls to the same function do not collide.
+			funcCallIndex++
+			callID := fmt.Sprintf("%s_%d", part.FunctionCall.Name, funcCallIndex)
+
 			contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 				Type:             sdk.ContentTypeToolUse,
-				ID:               part.FunctionCall.Name, // Gemini doesn't have a separate ID, so we use Name as ID
+				ID:               callID,
 				Name:             part.FunctionCall.Name,
 				Input:            part.FunctionCall.Args,
 				ThoughtSignature: part.ThoughtSignature,

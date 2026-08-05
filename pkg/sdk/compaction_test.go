@@ -36,7 +36,7 @@ func TestFindCompactionCut(t *testing.T) {
 		return InputMessage{
 			Role: RoleUser,
 			Content: []ContentBlock{
-				NewToolResultContentBlock(id, content, false),
+				NewToolResultContentBlock(id, "", content, false),
 			},
 		}
 	}
@@ -212,7 +212,7 @@ func TestIsUserTextBoundary(t *testing.T) {
 			msg: InputMessage{
 				Role: RoleUser,
 				Content: []ContentBlock{
-					NewToolResultContentBlock("t1", "result", false),
+					NewToolResultContentBlock("t1", "", "result", false),
 				},
 			},
 			want: false,
@@ -223,7 +223,7 @@ func TestIsUserTextBoundary(t *testing.T) {
 				Role: RoleUser,
 				Content: []ContentBlock{
 					{Type: ContentTypeText, Text: "hi"},
-					NewToolResultContentBlock("t1", "result", false),
+					NewToolResultContentBlock("t1", "", "result", false),
 				},
 			},
 			want: false,
@@ -262,7 +262,7 @@ func TestIsToolResultBoundary(t *testing.T) {
 		return InputMessage{
 			Role: RoleUser,
 			Content: []ContentBlock{
-				NewToolResultContentBlock(id, content, false),
+				NewToolResultContentBlock(id, "", content, false),
 			},
 		}
 	}
@@ -309,7 +309,7 @@ func TestIsToolResultBoundary(t *testing.T) {
 					Role: RoleUser,
 					Content: []ContentBlock{
 						{Type: ContentTypeText, Text: "hi"},
-						NewToolResultContentBlock("t1", "ok", false),
+						NewToolResultContentBlock("t1", "", "ok", false),
 					},
 				},
 				NewTextMessage(RoleAssistant, "done"),
@@ -682,7 +682,7 @@ func TestRunTurnSurvivesCompactionFailure(t *testing.T) {
 func TestComputeCompactionCutFallsBackToFullEviction(t *testing.T) {
 	body := []InputMessage{
 		{Role: RoleAssistant, Content: []ContentBlock{{Type: ContentTypeToolUse, ID: "t1", Name: "bash"}}},
-		{Role: RoleUser, Content: []ContentBlock{NewToolResultContentBlock("t1", strings.Repeat("x", 900_000), false)}},
+		{Role: RoleUser, Content: []ContentBlock{NewToolResultContentBlock("t1", "", strings.Repeat("x", 900_000), false)}},
 	}
 
 	cut := computeCompactionCut(body, 2)
@@ -762,7 +762,7 @@ func TestSerializeForSummaryPreservesErrorsAndPaths(t *testing.T) {
 			{Type: ContentTypeToolUse, ID: "t1", Name: "bash", Input: map[string]interface{}{"command": "make test"}},
 		}},
 		{Role: RoleUser, Content: []ContentBlock{
-			NewToolResultContentBlock("t1", "FAIL: TestFoo", true),
+			NewToolResultContentBlock("t1", "", "FAIL: TestFoo", true),
 		}},
 		{Role: RoleAssistant, Content: []ContentBlock{
 			{Type: ContentTypeImage, FilePath: "/tmp/image_abcde.png"},
@@ -839,7 +839,7 @@ func TestCharSizeCountsImageBlobs(t *testing.T) {
 func TestCharSizeCountsNonStringToolResult(t *testing.T) {
 	messages := []InputMessage{
 		{Role: RoleUser, Content: []ContentBlock{
-			NewToolResultContentBlock("t1", map[string]any{"key": strings.Repeat("v", 5000)}, false),
+			NewToolResultContentBlock("t1", "", map[string]any{"key": strings.Repeat("v", 5000)}, false),
 		}},
 	}
 
@@ -907,7 +907,7 @@ func TestSerializeForSummaryKeepsLongUserInstructions(t *testing.T) {
 	// where constraints live.
 	toolOut := serializeForSummary([]InputMessage{
 		{Role: RoleUser, Content: []ContentBlock{
-			NewToolResultContentBlock("t1", strings.Repeat("z", 5000), false),
+			NewToolResultContentBlock("t1", "", strings.Repeat("z", 5000), false),
 		}},
 	})
 

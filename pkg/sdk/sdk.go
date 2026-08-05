@@ -465,17 +465,19 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 		}
 
 		var allToolResults []ContentBlock
+		var toolErr error
 		for _, block := range response.Content {
 			if block.Type != ContentTypeToolUse {
 				continue
 			}
 
 			toolResults, err := a.processTools(block)
-			if err != nil {
-				return nil, err
-			}
-
 			allToolResults = append(allToolResults, toolResults...)
+			if err != nil && toolErr == nil {
+				// Keep running the remaining tool_use blocks so earlier
+				// successes are not discarded when a later call hard-fails.
+				toolErr = err
+			}
 		}
 
 		if len(allToolResults) > 0 {
@@ -485,71 +487,95 @@ func (a *AI) RunTurn(history []InputMessage) ([]InputMessage, error) {
 				Content: allToolResults,
 			})
 		}
+
+		if toolErr != nil {
+			// Return the history that already includes any successful
+			// tool_results so callers are not left with unpaired tool_use.
+			return messages, toolErr
+		}
 	}
 }
 
 func (a *AI) processTools(toolCall ResponseContentBlock) ([]ContentBlock, error) {
-	// Execute tools and collect results
-	toolResults := []ContentBlock{}
-
-	found := false
 	for _, tool := range a.tools {
-		if tool.Name() == toolCall.Name {
-			found = true
-
-			// print some generic information of the tool calls we make
-			color.New(color.FgCyan, color.Bold).Print("Tool Call: ")
-			color.Cyan("%s", tool.Name())
-			inputBytes, _ := json.Marshal(toolCall.Input)
-			color.Cyan("Tool Input:  %s\n", inputBytes[:min(len(inputBytes), 100)])
-
-			result, err := tool.Call(toolCall.Input)
-			if err != nil {
-				var aiError *AIError
-				if errors.As(err, &aiError) {
-					toolResults = append(toolResults, NewToolResultContentBlock(toolCall.ID, aiError.AIResponse(), true))
-
-					continue
-				}
-
-				return nil, err
-			}
-
-			// Convert result to JSON string for API compatibility
-			// The Anthropic API requires tool result content to be a string or array of content blocks
-			var resultContent string
-			switch v := result.(type) {
-			case string:
-				resultContent = v
-			default:
-				// Convert to JSON string
-				jsonBytes, err := json.Marshal(result)
-				if err != nil {
-					return nil, fmt.Errorf("failed to marshal tool result: %w", err)
-				}
-				resultContent = string(jsonBytes)
-			}
-
-			toolResults = append(toolResults, NewToolResultContentBlock(toolCall.ID, resultContent, false))
-
-			break
+		if tool.Name() != toolCall.Name {
+			continue
 		}
-	}
-	if !found {
-		return nil, fmt.Errorf("tool not found: '%s'", toolCall.Name)
+
+		// print some generic information of the tool calls we make
+		color.New(color.FgCyan, color.Bold).Print("Tool Call: ")
+		color.Cyan("%s", tool.Name())
+		inputBytes, _ := json.Marshal(toolCall.Input)
+		color.Cyan("Tool Input:  %s\n", inputBytes[:min(len(inputBytes), 100)])
+
+		result, err := tool.Call(toolCall.Input)
+		if err != nil {
+			// All tool execution failures are soft: send an error tool_result
+			// so the model can recover instead of aborting the turn. Tools
+			// that truly need to stop the process (e.g. user abort) exit
+			// before returning here.
+			errPayload := toolErrorPayload(err)
+			block := NewToolResultContentBlock(toolCall.ID, toolCall.Name, errPayload, true)
+			a.logToolResult(block)
+
+			return []ContentBlock{block}, nil
+		}
+
+		// Convert result to JSON string for API compatibility
+		// The Anthropic API requires tool result content to be a string or array of content blocks
+		var resultContent string
+		switch v := result.(type) {
+		case string:
+			resultContent = v
+		default:
+			// Convert to JSON string
+			jsonBytes, err := json.Marshal(result)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal tool result: %w", err)
+			}
+			resultContent = string(jsonBytes)
+		}
+
+		block := NewToolResultContentBlock(toolCall.ID, toolCall.Name, resultContent, false)
+		a.logToolResult(block)
+
+		return []ContentBlock{block}, nil
 	}
 
-	for _, response := range toolResults {
-		a.audit.LogEvent(audit.Event{
-			Type: audit.FunctionResponseEvent,
-			FunctionResponse: functionResponseAudit{
-				Name:     response.ToolUseID,
-				Response: response.Content,
-			},
-		})
+	// Unknown / hallucinated tool names are soft errors so the model can retry.
+	block := NewToolResultContentBlock(
+		toolCall.ID,
+		toolCall.Name,
+		NewAIError(fmt.Sprintf("tool not found: %q", toolCall.Name)).AIResponse(),
+		true,
+	)
+	a.logToolResult(block)
+
+	return []ContentBlock{block}, nil
+}
+
+func toolErrorPayload(err error) string {
+	var aiError *AIError
+	if errors.As(err, &aiError) {
+		return aiError.AIResponse()
 	}
 
-	return toolResults, nil
+	return NewAIError(err.Error()).AIResponse()
+}
+
+func (a *AI) logToolResult(response ContentBlock) {
+	name := response.Name
+	if name == "" {
+		name = response.ToolUseID
+	}
+
+	a.audit.LogEvent(audit.Event{
+		Type: audit.FunctionResponseEvent,
+		FunctionResponse: functionResponseAudit{
+			Name:     name,
+			Response: response.Content,
+		},
+	})
 }
 
 // printGroundingSummary renders a short, human-readable digest of what the

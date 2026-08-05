@@ -1,6 +1,6 @@
 package sdk
 
-import "strings"
+import "encoding/json"
 
 type AIError struct {
 	Message string
@@ -23,12 +23,17 @@ func (a *AIError) Error() string {
 	return a.Message
 }
 
+// AIResponse returns a JSON object the model can parse as a tool error.
+// Message is encoded as a JSON string so quotes/newlines cannot break the payload.
 func (a *AIError) AIResponse() string {
-	var s strings.Builder
+	payload, err := json.Marshal(map[string]string{
+		"type":   "tool_error",
+		"result": a.Message,
+	})
+	if err != nil {
+		// json.Marshal only fails on unsupported types; both fields are strings.
+		return `{"type":"tool_error","result":"failed to encode tool error"}`
+	}
 
-	s.WriteString(`{"type": "tool_error", "result": "`)
-	s.WriteString(a.Message)
-	s.WriteString(`"}`)
-
-	return s.String()
+	return string(payload)
 }

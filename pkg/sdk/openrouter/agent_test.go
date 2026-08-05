@@ -84,7 +84,7 @@ func TestConvertRequest_ToolUseAndToolResult(t *testing.T) {
 			{
 				Role: sdk.RoleUser,
 				Content: []sdk.ContentBlock{
-					sdk.NewToolResultContentBlock("call_1", "12:00", false),
+					sdk.NewToolResultContentBlock("call_1", "get_time", "12:00", false),
 				},
 			},
 		},

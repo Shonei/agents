@@ -19,7 +19,7 @@ func TestRenderRecentHistorySkipsToolBlocks(t *testing.T) {
 		{
 			Role: RoleUser,
 			Content: []ContentBlock{
-				NewToolResultContentBlock("t1", "ok", false),
+				NewToolResultContentBlock("t1", "", "ok", false),
 			},
 		},
 		{

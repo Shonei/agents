@@ -282,12 +282,85 @@
     }
 
     .grounding-section-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       font-size: 11px;
       text-transform: uppercase;
       font-weight: 600;
       letter-spacing: 0.5px;
       color: #aaa;
       margin-bottom: 8px;
+    }
+
+    .grounding-section-tool {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: #6ba3ff;
+      opacity: 0.85;
+    }
+
+    .grounding-tool-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 0 16px 10px;
+    }
+
+    .configured-tools {
+      display: grid;
+      gap: 8px;
+      padding: 10px 0 14px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .configured-tool-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .configured-tool-label {
+      min-width: 95px;
+      padding-top: 2px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #aaa;
+    }
+
+    .configured-tool-row .grounding-tool-badges {
+      padding: 0;
+      flex: 1;
+    }
+
+    .grounding-tool-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(107, 163, 255, 0.12);
+      color: #9ec1ff;
+      border: 1px solid rgba(107, 163, 255, 0.35);
+    }
+
+    .grounding-tool-badge.tool-google_search,
+    .grounding-tool-badge.tool-web_search {
+      background: rgba(110, 231, 160, 0.12);
+      color: #8fe0b0;
+      border-color: rgba(110, 231, 160, 0.35);
+    }
+
+    .grounding-tool-badge.tool-url_context,
+    .grounding-tool-badge.tool-web_fetch {
+      background: rgba(231, 196, 110, 0.12);
+      color: #e7c46e;
+      border-color: rgba(231, 196, 110, 0.35);
     }
 
     .grounding-queries {

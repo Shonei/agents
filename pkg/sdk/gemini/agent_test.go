@@ -82,3 +82,88 @@ func TestConvertRequest_FunctionResponseFallsBackToToolUseID(t *testing.T) {
 	require.NotNil(t, req.Contents[0].Parts[0].FunctionResponse)
 	assert.Equal(t, "legacy_name", req.Contents[0].Parts[0].FunctionResponse.Name)
 }
+
+func TestConvertRequest_ServerToolsIncludeInvocationDetails(t *testing.T) {
+	a := NewAgent()
+
+	req, err := a.convertRequest(sdk.CreateMessageRequest{
+		Messages: []sdk.InputMessage{
+			sdk.NewTextMessage(sdk.RoleUser, "Read https://example.com/docs"),
+		},
+		ServerTools: []sdk.ServerTool{{Name: sdk.ServerToolURLContext}},
+	})
+	require.NoError(t, err)
+	require.Len(t, req.Tools, 1)
+	require.NotNil(t, req.Tools[0].URLContext)
+	require.NotNil(t, req.ToolConfig)
+	require.NotNil(t, req.ToolConfig.IncludeServerSideToolInvocations)
+	assert.True(t, *req.ToolConfig.IncludeServerSideToolInvocations)
+	assert.Nil(t, req.ToolConfig.FunctionCallingConfig)
+}
+
+func TestConvertResponse_CapturesCandidateURLContextMetadata(t *testing.T) {
+	a := NewAgent()
+
+	resp, err := a.convertResponse(GenerateContentResponse{
+		ResponseId: "r-url",
+		Candidates: []Candidate{{
+			Content: Content{
+				Parts: []Part{{Text: "I read the docs."}},
+			},
+			URLContextMetadata: &URLContextMetadata{
+				URLMetadata: []URLMetadataEntry{{
+					RetrievedURL:       "https://example.com/docs",
+					URLRetrievalStatus: "URL_RETRIEVAL_STATUS_SUCCESS",
+				}},
+			},
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Content, 2)
+
+	grounding := resp.Content[1]
+	require.Equal(t, sdk.ContentTypeGrounding, grounding.Type)
+	require.NotNil(t, grounding.Grounding)
+	assert.Equal(t, []string{sdk.ServerToolURLContext}, grounding.Grounding.Tools)
+	assert.Equal(t, []sdk.RetrievedURL{{
+		URL:    "https://example.com/docs",
+		Status: "URL_RETRIEVAL_STATUS_SUCCESS",
+	}}, grounding.Grounding.RetrievedURLs)
+}
+
+func TestConvertResponse_MergesNestedAndCandidateURLContextMetadata(t *testing.T) {
+	a := NewAgent()
+
+	resp, err := a.convertResponse(GenerateContentResponse{
+		ResponseId: "r-merge",
+		Candidates: []Candidate{{
+			Content: Content{
+				Parts: []Part{{Text: "I read both docs."}},
+			},
+			GroundingMetadata: &GroundingMetadata{
+				URLContextMetadata: &URLContextMetadata{
+					URLMetadata: []URLMetadataEntry{{
+						RetrievedURL:       "https://example.com/old-shape",
+						URLRetrievalStatus: "URL_RETRIEVAL_STATUS_SUCCESS",
+					}},
+				},
+			},
+			URLContextMetadata: &URLContextMetadata{
+				URLMetadata: []URLMetadataEntry{{
+					RetrievedURL:       "https://example.com/current-shape",
+					URLRetrievalStatus: "URL_RETRIEVAL_STATUS_SUCCESS",
+				}},
+			},
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Content, 2)
+
+	grounding := resp.Content[1].Grounding
+	require.NotNil(t, grounding)
+	assert.Equal(t, []string{sdk.ServerToolURLContext}, grounding.Tools)
+	assert.Equal(t, []sdk.RetrievedURL{
+		{URL: "https://example.com/old-shape", Status: "URL_RETRIEVAL_STATUS_SUCCESS"},
+		{URL: "https://example.com/current-shape", Status: "URL_RETRIEVAL_STATUS_SUCCESS"},
+	}, grounding.RetrievedURLs)
+}

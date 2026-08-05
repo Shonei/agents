@@ -183,6 +183,7 @@ func TestConvertResponse_WebSearchAnnotations(t *testing.T) {
 	require.Len(t, g.Grounding.Sources, 1)
 	assert.Equal(t, "https://example.com/news", g.Grounding.Sources[0].URI)
 	assert.Equal(t, "Big News", g.Grounding.Sources[0].Title)
+	assert.Equal(t, []string{sdk.ServerToolWebSearch}, g.Grounding.Tools)
 }
 
 func TestConvertResponse(t *testing.T) {

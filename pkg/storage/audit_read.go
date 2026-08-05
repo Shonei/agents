@@ -13,6 +13,8 @@ type AuditSession struct {
 	ID              string         `db:"id"`
 	SessionHash     string         `db:"session_hash"`
 	SystemPrompt    string         `db:"system_prompt"`
+	Tools           sql.NullString `db:"tools"`
+	ServerTools     sql.NullString `db:"server_tools"`
 	ParentSessionID sql.NullString `db:"parent_session_id"`
 	CreatedAt       time.Time      `db:"created_at"`
 }
@@ -80,7 +82,7 @@ func (s *Storage) ListAuditSessions(limit int) ([]AuditSessionSummary, error) {
 func (s *Storage) GetAuditSession(id string) (*AuditSession, error) {
 	var rows []AuditSession
 
-	query := `SELECT id, session_hash, system_prompt, parent_session_id, created_at
+	query := `SELECT id, session_hash, system_prompt, tools, server_tools, parent_session_id, created_at
 	          FROM audit_sessions
 	          WHERE id = ? OR starts_with(id, ?) OR ends_with(id, ?)
 	          ORDER BY created_at DESC`

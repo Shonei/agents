@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 
@@ -53,17 +54,28 @@ func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
-func (s *Storage) SaveSession(id string, hash string, prompt string, parentSessionID string) error {
+func (s *Storage) SaveSession(id string, hash string, prompt string, parentSessionID string, tools []string, serverTools []string) error {
+	toolsJSON, err := json.Marshal(tools)
+	if err != nil {
+		return fmt.Errorf("failed to marshal audit session tools: %w", err)
+	}
+	serverToolsJSON, err := json.Marshal(serverTools)
+	if err != nil {
+		return fmt.Errorf("failed to marshal audit session server tools: %w", err)
+	}
+
 	record := goqu.Record{
 		"id":            id,
 		"session_hash":  hash,
 		"system_prompt": prompt,
+		"tools":         string(toolsJSON),
+		"server_tools":  string(serverToolsJSON),
 	}
 	if parentSessionID != "" {
 		record["parent_session_id"] = parentSessionID
 	}
 
-	_, err := s.goquDB.Insert("audit_sessions").Rows(record).Executor().Exec()
+	_, err = s.goquDB.Insert("audit_sessions").Rows(record).Executor().Exec()
 
 	return err
 }

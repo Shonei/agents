@@ -422,6 +422,11 @@ func convertAnnotations(annotations []Annotation) *sdk.GroundingMetadata {
 		return nil
 	}
 
+	// OpenRouter surfaces web_search (and sometimes web_fetch) as url_citation
+	// annotations. We can't always tell them apart from citations alone, so
+	// label the activity as web_search — the usual source of these annotations.
+	out.Tools = []string{sdk.ServerToolWebSearch}
+
 	return out
 }
 

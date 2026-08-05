@@ -27,9 +27,19 @@ func Test_parseParams(t *testing.T) {
 			map[string]interface{}{"key1": "value1", "key2": "value2"},
 		},
 		{
-			"numbers - might break in the future as we might want to convert them to numbers",
+			"numbers",
 			[]string{"key1:1.2", "key2:123"},
-			map[string]interface{}{"key1": "1.2", "key2": "123"},
+			map[string]interface{}{"key1": 1.2, "key2": float64(123)},
+		},
+		{
+			"booleans",
+			[]string{"enabled:true"},
+			map[string]interface{}{"enabled": true},
+		},
+		{
+			"quoted strings",
+			[]string{`key:"123"`},
+			map[string]interface{}{"key": "123"},
 		},
 		{
 			"nested multiple",

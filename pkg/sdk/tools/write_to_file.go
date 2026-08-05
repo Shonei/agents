@@ -14,17 +14,23 @@ import (
 )
 
 // WriteToFileTool is a tool for creating files and write content to them
-type WriteToFileTool struct{}
+type WriteToFileTool struct {
+	requireConfirmation bool
+}
 
 func (b *WriteToFileTool) Name() string {
 	return "write_to_file"
 }
 
 func (b *WriteToFileTool) Description() string {
-	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed. This can also be used to overwrite existing files. By default the tool will not overwrite existing files. To overwrite the file set the force parameter to true. The user will be prompted to confirm the execution and he can choose to skip it."
+	return "Given a file path and content, creates the file and writes the content to it. It will create all relative directories if needed. This can also be used to overwrite existing files. By default the tool will not overwrite existing files. To overwrite the file set the force parameter to true. By default the user is prompted to confirm; set require_confirmation: \"false\" in the tool config to auto-approve writes."
 }
 
 func (b *WriteToFileTool) Init(config map[string]string, _ *config.ConfigFactory) {
+	b.requireConfirmation = true
+	if val, ok := config["require_confirmation"]; ok && val == "false" {
+		b.requireConfirmation = false
+	}
 }
 
 func (b *WriteToFileTool) InputSchema() map[string]interface{} {
@@ -86,24 +92,29 @@ func (b *WriteToFileTool) Call(input map[string]interface{}) (interface{}, error
 		return "", sdk.NewAIError("file already exists, set force to true to overwrite the file content")
 	}
 
+	action := "create"
 	if toolInput.Force {
-		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create or overwrite the following file:")
-	} else {
-		color.New(color.FgYellow, color.Bold).Println("\nYou are about to create the following file:")
+		action = "create or overwrite"
 	}
 
-	color.Cyan("  %s", toolInput.FilePath)
+	if b.requireConfirmation {
+		color.New(color.FgYellow, color.Bold).Printf("\nYou are about to %s the following file:\n", action)
+		color.Cyan("  %s", toolInput.FilePath)
 
-	answer, _ := utils.AskUserConfirmation()
-	switch answer {
-	case utils.ToolExecutionYes:
-		// continue
-	case utils.ToolExecutionSkip:
-		return "<exitcode>1</exitcode><output>Skipped by user</output>", nil
-	case utils.ToolExecutionAbort:
-		utils.NewExitError().WithMessage("tool execution aborted by user").Done()
-	case utils.ToolExecutionUnknown:
-		utils.NewExitError().WithMessage("unknown user choice").Done()
+		answer, _ := utils.AskUserConfirmation()
+		switch answer {
+		case utils.ToolExecutionYes:
+			// continue
+		case utils.ToolExecutionSkip:
+			return "<exitcode>1</exitcode><output>Skipped by user</output>", nil
+		case utils.ToolExecutionAbort:
+			utils.NewExitError().WithMessage("tool execution aborted by user").Done()
+		case utils.ToolExecutionUnknown:
+			utils.NewExitError().WithMessage("unknown user choice").Done()
+		}
+	} else {
+		color.New(color.FgYellow, color.Bold).Printf("\nWriting file (auto-confirmed — %s):\n", action)
+		color.Cyan("  %s", toolInput.FilePath)
 	}
 
 	dir := filepath.Dir(toolInput.FilePath)

@@ -76,6 +76,17 @@ var registeredMigrations = []migrations{
 			return err
 		},
 	},
+	{
+		name: "add_tools_to_audit_sessions",
+		run: func(db *goqu.Database) error {
+			if _, err := db.Exec(`ALTER TABLE audit_sessions ADD COLUMN IF NOT EXISTS tools TEXT;`); err != nil {
+				return err
+			}
+			_, err := db.Exec(`ALTER TABLE audit_sessions ADD COLUMN IF NOT EXISTS server_tools TEXT;`)
+
+			return err
+		},
+	},
 }
 
 func initDatabase(db *goqu.Database) error {

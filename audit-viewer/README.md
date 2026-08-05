@@ -57,5 +57,9 @@ audit-viewer/
   - System prompts
   - User messages
   - Assistant responses
-  - Function calls
-  - Function responses
+  - Function calls / responses (local tools: `bash`, `write_to_file`, `view_file`, …)
+  - **Web tools / grounding** — provider-executed tools such as `google_search`,
+    `url_context`, `web_search`, and `web_fetch` do **not** appear as function
+    calls. They are logged as `grounding` events and rendered as “Web tools”
+    blocks showing which tool ran, search queries, retrieved URLs, and sources.
+  - Plan / todo snapshots, router handoffs, compaction summaries

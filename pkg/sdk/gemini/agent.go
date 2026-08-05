@@ -341,11 +341,13 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 	// Gemini's functionCallingConfig governs the local function-declaration
 	// tools only; sending it when none are declared (server tools only)
 	// causes the API to reject the request, so guard on req.Tools here.
+	if len(req.ServerTools) > 0 {
+		geminiReq.ToolConfig = ensureToolConfig(geminiReq.ToolConfig)
+		geminiReq.ToolConfig.IncludeServerSideToolInvocations = new(true)
+	}
 	if req.ToolChoice != nil && len(req.Tools) > 0 {
-		geminiReq.ToolConfig = &ToolConfig{
-			FunctionCallingConfig:            &FunctionCallingConfig{},
-			IncludeServerSideToolInvocations: new(true),
-		}
+		geminiReq.ToolConfig = ensureToolConfig(geminiReq.ToolConfig)
+		geminiReq.ToolConfig.FunctionCallingConfig = &FunctionCallingConfig{}
 		switch req.ToolChoice.Type {
 		case "auto":
 			geminiReq.ToolConfig.FunctionCallingConfig.Mode = "AUTO"
@@ -360,6 +362,14 @@ func (a *Agent) convertRequest(req sdk.CreateMessageRequest) (*GenerateContentRe
 	}
 
 	return geminiReq, nil
+}
+
+func ensureToolConfig(toolConfig *ToolConfig) *ToolConfig {
+	if toolConfig != nil {
+		return toolConfig
+	}
+
+	return &ToolConfig{}
 }
 
 func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageResponse, error) {
@@ -421,7 +431,7 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 		}
 	}
 
-	if grounding := convertGrounding(candidate.GroundingMetadata); grounding != nil {
+	if grounding := convertGrounding(candidate.GroundingMetadata, candidate.URLContextMetadata); grounding != nil {
 		contentBlocks = append(contentBlocks, sdk.ResponseContentBlock{
 			Type:      sdk.ContentTypeGrounding,
 			Grounding: grounding,
@@ -454,42 +464,69 @@ func usageOf(m *UsageMetadata) sdk.Usage {
 // convertGrounding maps Gemini's groundingMetadata payload onto the
 // provider-agnostic sdk.GroundingMetadata shape. Returns nil when the
 // candidate carries no useful grounding info.
-func convertGrounding(g *GroundingMetadata) *sdk.GroundingMetadata {
-	if g == nil {
+func convertGrounding(g *GroundingMetadata, urlContext *URLContextMetadata) *sdk.GroundingMetadata {
+	if g == nil && urlContext == nil {
 		return nil
 	}
 
-	out := &sdk.GroundingMetadata{
-		WebSearchQueries: g.WebSearchQueries,
-	}
+	out := &sdk.GroundingMetadata{}
+	if g != nil {
+		out.WebSearchQueries = g.WebSearchQueries
 
-	for _, chunk := range g.GroundingChunks {
-		if chunk.Web == nil {
-			continue
-		}
-		out.Sources = append(out.Sources, sdk.GroundingSource{
-			Title: chunk.Web.Title,
-			URI:   chunk.Web.URI,
-		})
-	}
-
-	if g.URLContextMetadata != nil {
-		for _, u := range g.URLContextMetadata.URLMetadata {
-			if u.RetrievedURL == "" {
+		for _, chunk := range g.GroundingChunks {
+			if chunk.Web == nil {
 				continue
 			}
-			out.RetrievedURLs = append(out.RetrievedURLs, sdk.RetrievedURL{
-				URL:    u.RetrievedURL,
-				Status: u.URLRetrievalStatus,
+			out.Sources = append(out.Sources, sdk.GroundingSource{
+				Title: chunk.Web.Title,
+				URI:   chunk.Web.URI,
 			})
 		}
+
+		appendURLMetadata(out, g.URLContextMetadata)
 	}
+	appendURLMetadata(out, urlContext)
 
 	if len(out.WebSearchQueries) == 0 && len(out.Sources) == 0 && len(out.RetrievedURLs) == 0 {
 		return nil
 	}
 
+	// Infer which Gemini server tools produced this side-channel. Search
+	// queries / grounding chunks come from google_search; retrieved_urls come
+	// from url_context. Both can appear on the same candidate.
+	if len(out.WebSearchQueries) > 0 || len(out.Sources) > 0 {
+		out.Tools = append(out.Tools, sdk.ServerToolGoogleSearch)
+	}
+	if len(out.RetrievedURLs) > 0 {
+		out.Tools = append(out.Tools, sdk.ServerToolURLContext)
+	}
+
 	return out
+}
+
+func appendURLMetadata(out *sdk.GroundingMetadata, metadata *URLContextMetadata) {
+	if metadata == nil {
+		return
+	}
+
+	seen := make(map[string]struct{}, len(out.RetrievedURLs))
+	for _, u := range out.RetrievedURLs {
+		seen[u.URL+"|"+u.Status] = struct{}{}
+	}
+	for _, u := range metadata.URLMetadata {
+		if u.RetrievedURL == "" {
+			continue
+		}
+		key := u.RetrievedURL + "|" + u.URLRetrievalStatus
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out.RetrievedURLs = append(out.RetrievedURLs, sdk.RetrievedURL{
+			URL:    u.RetrievedURL,
+			Status: u.URLRetrievalStatus,
+		})
+	}
 }
 
 func retry(attempt int, resp *http.Response) (int, bool) {

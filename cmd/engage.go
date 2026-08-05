@@ -173,7 +173,8 @@ func (a *engage) buildAgent(agent config.Agent, auditLogger audit.Logger, silent
 		if silentPrompt {
 			aiSDK.SetSystemPromptSilent(rendered)
 		} else {
-			aiAudit.User(rendered, parentSessionID)
+			tools, serverTools := aiSDK.ConfiguredToolNames()
+			aiAudit.User(rendered, parentSessionID, tools, serverTools)
 			aiSDK.SetSystemPromptSilent(rendered)
 		}
 	}
@@ -200,7 +201,7 @@ func (a *engage) buildRouter(name string, agent config.Agent, auditLogger audit.
 	classifierAgent := a.newModelAgent(config.Agent{Model: agent.Classifier.Model})
 
 	routerAudit := audit.NewAudit(auditLogger)
-	routerAudit.User(sdk.SynthesizeRouterPrompt(name, meta, routes, agent.Classifier.Model), "")
+	routerAudit.User(sdk.SynthesizeRouterPrompt(name, meta, routes, agent.Classifier.Model), "", nil, nil)
 
 	return sdk.NewRouterAI(
 		name,

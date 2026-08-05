@@ -100,7 +100,7 @@ func parseParams(params []string) map[string]interface{} {
 		}
 
 		key := param[:idx]
-		value := param[idx+1:]
+		value := parseParamValue(param[idx+1:])
 
 		// Handle nested keys with dot notation
 		parts := strings.Split(key, ".")
@@ -110,8 +110,17 @@ func parseParams(params []string) map[string]interface{} {
 	return result
 }
 
+func parseParamValue(value string) interface{} {
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+		return parsed
+	}
+
+	return value
+}
+
 // setNestedValue sets a value in a nested map structure based on the key parts.
-func setNestedValue(m map[string]interface{}, parts []string, value string) {
+func setNestedValue(m map[string]interface{}, parts []string, value interface{}) {
 	if len(parts) == 1 {
 		m[parts[0]] = value
 

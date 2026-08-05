@@ -5,8 +5,12 @@ import "github.com/Shonei/agents/pkg/sdk"
 func Tools() []sdk.AITool {
 	return []sdk.AITool{
 		&FetchURLTool{},
+		&BrowseURLTool{},
+		&FirecrawlFetchTool{},
+		&IngestAPISpecTool{},
 		&TimeTool{},
 		&WriteToFileTool{},
+		&DeleteFileTool{},
 		&ViewFileTool{},
 		&ListDirTool{},
 		&BashTool{},

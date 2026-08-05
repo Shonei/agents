@@ -5,7 +5,9 @@ const (
 	RoleUser  = "user"
 	RoleModel = "model"
 
+	ModelGemini36Flash             = "gemini-3.6-flash"
 	ModelGemini35Flash             = "gemini-3.5-flash"
+	ModelGemini35FlashLite         = "gemini-3.5-flash-lite"
 	ModelGemini31ProPreview        = "gemini-3.1-pro-preview"
 	ModelGemini31FlashLite         = "gemini-3.1-flash-lite"
 	ModelGemini31FlashImagePreview = "gemini-3.1-flash-image-preview"
@@ -117,12 +119,13 @@ type GenerateContentResponse struct {
 
 // Candidate represents a generation candidate
 type Candidate struct {
-	Content           Content            `json:"content"`
-	FinishReason      string             `json:"finishReason,omitempty"`
-	SafetyRatings     []SafetyRating     `json:"safetyRatings,omitempty"`
-	TokenCount        int                `json:"tokenCount,omitempty"`
-	Index             int                `json:"index,omitempty"`
-	GroundingMetadata *GroundingMetadata `json:"groundingMetadata,omitempty"`
+	Content            Content             `json:"content"`
+	FinishReason       string              `json:"finishReason,omitempty"`
+	SafetyRatings      []SafetyRating      `json:"safetyRatings,omitempty"`
+	TokenCount         int                 `json:"tokenCount,omitempty"`
+	Index              int                 `json:"index,omitempty"`
+	GroundingMetadata  *GroundingMetadata  `json:"groundingMetadata,omitempty"`
+	URLContextMetadata *URLContextMetadata `json:"urlContextMetadata,omitempty"`
 }
 
 // GroundingMetadata is Gemini's side-channel about server-side tool activity

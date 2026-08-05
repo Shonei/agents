@@ -35,7 +35,7 @@ type Logger interface {
 }
 
 type AuditStore interface {
-	SaveSession(id string, hash string, prompt string, parentSessionID string) error
+	SaveSession(id string, hash string, prompt string, parentSessionID string, tools []string, serverTools []string) error
 	SaveEvent(id string, sessionID string, eventType string, content string, payload []byte) error
 }
 
@@ -57,9 +57,11 @@ type Event struct {
 }
 
 type User struct {
-	ID              string `json:"id"`
-	SystemPrompt    string `json:"system_prompt"`
-	ParentSessionID string `json:"parent_session_id,omitempty"`
+	ID              string   `json:"id"`
+	SystemPrompt    string   `json:"system_prompt"`
+	ParentSessionID string   `json:"parent_session_id,omitempty"`
+	Tools           []string `json:"tools,omitempty"`
+	ServerTools     []string `json:"server_tools,omitempty"`
 }
 
 type AuditConfig struct {
@@ -82,10 +84,12 @@ func (a *Audit) SessionID() string {
 	return a.logger.SessionID()
 }
 
-func (a *Audit) User(p string, parentSessionID string) {
+func (a *Audit) User(p string, parentSessionID string, tools []string, serverTools []string) {
 	user := User{
 		SystemPrompt:    p,
 		ParentSessionID: parentSessionID,
+		Tools:           tools,
+		ServerTools:     serverTools,
 	}
 
 	idHash := sha256.New()
@@ -232,5 +236,5 @@ func (d *dbLogger) LogUser(user User) {
 	salt := time.Now().UnixNano()
 	d.sessionID = fmt.Sprintf("%s_%d", user.ID, salt)
 
-	_ = d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt, user.ParentSessionID)
+	_ = d.store.SaveSession(d.sessionID, user.ID, user.SystemPrompt, user.ParentSessionID, user.Tools, user.ServerTools)
 }

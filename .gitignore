@@ -13,3 +13,4 @@ audit-ui/node_modules/
 audit-ui/dist/
 audit-viewer/node_modules/
 audit-viewer/bun.lock
+/systems/

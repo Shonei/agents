@@ -35,7 +35,7 @@ func TestAuditStorage(t *testing.T) {
 		hash := "hash-1"
 		prompt := "system prompt"
 
-		err := store.SaveSession(id, hash, prompt, "")
+		err := store.SaveSession(id, hash, prompt, "", []string{"browse_url"}, []string{"google_search", "url_context"})
 		require.NoError(t, err)
 
 		// Verify session was saved
@@ -47,6 +47,8 @@ func TestAuditStorage(t *testing.T) {
 			ID           string `db:"id"`
 			SessionHash  string `db:"session_hash"`
 			SystemPrompt string `db:"system_prompt"`
+			Tools        string `db:"tools"`
+			ServerTools  string `db:"server_tools"`
 		}
 		var session Session
 		found, err := store.goquDB.From("audit_sessions").Where(goqu.Ex{"id": id}).ScanStruct(&session)
@@ -55,6 +57,8 @@ func TestAuditStorage(t *testing.T) {
 		assert.Equal(t, id, session.ID)
 		assert.Equal(t, hash, session.SessionHash)
 		assert.Equal(t, prompt, session.SystemPrompt)
+		assert.JSONEq(t, `["browse_url"]`, session.Tools)
+		assert.JSONEq(t, `["google_search","url_context"]`, session.ServerTools)
 	})
 
 	t.Run("SaveEvent", func(t *testing.T) {

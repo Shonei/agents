@@ -60,6 +60,18 @@ Which key you need depends on the models your agents use (see [Models and Provid
    github_token: "your-github-token"
    ```
 
+**Firecrawl** — optional, used by the `firecrawl_fetch` hosted scraping tool:
+
+1. **Environment Variable** (Recommended):
+   ```bash
+   export FIRECRAWL_API_KEY="your-firecrawl-key"
+   ```
+
+2. **Config File**:
+   ```yaml
+   firecrawl_api_key: "your-firecrawl-key"
+   ```
+
 Environment variables always take precedence over values in the config file.
 
 ### Global Options
@@ -128,7 +140,9 @@ The provider is chosen from the **model string**, not from a separate config fie
 
 Native Gemini model IDs known to `agents add`:
 
+*   `gemini-3.6-flash`
 *   `gemini-3.5-flash`
+*   `gemini-3.5-flash-lite`
 *   `gemini-3.1-pro-preview`
 *   `gemini-3.1-flash-lite`
 *   `gemini-3.1-flash-image-preview`
@@ -212,8 +226,12 @@ what a given value would evict before trusting it.
 
 **Available Tools:**
 *   `fetch_url`: Fetch content from a URL.
+*   `browse_url`: Render a URL in Chromium (chromedp) and return cleaned markdown/text; useful when docs need JavaScript or reject simple HTTP fetches.
+*   `firecrawl_fetch`: Fetch a single URL through Firecrawl's hosted scrape API and return markdown; useful as a hosted alternative to `browse_url`.
+*   `ingest_api_spec`: Fetch or read an OpenAPI/Swagger or Postman Collection and return a structured summary of servers, auth schemes, and operations (prefer this over HTML scraping when a vendor publishes a spec).
 *   `time`: Get the current date and time.
 *   `write_to_file`: Create or overwrite files.
+*   `delete_file`: Delete a single file. Refuses to delete directories and paths outside its allowed root.
 *   `view_file`: Read file contents.
 *   `list_dir`: List directory contents.
 *   `bash`: Execute shell commands. By default, prompts the user for confirmation before execution.
@@ -242,16 +260,62 @@ agents tools details bash
 
 Some tools support custom configuration via the `config` block in the YAML file.
 
-**Bash Tool (`bash`)**
-By default, the `bash` tool prompts the user for confirmation before executing any command. You can disable this for fully autonomous agents (e.g., read-only sub-agents) by setting `require_confirmation: "false"`.
+**Confirmation (`bash`, `write_to_file`, `delete_file`, `browse_url`)**
+By default, `bash`, `write_to_file`, `delete_file`, and `browse_url` prompt before running. Disable per agent with `require_confirmation: "false"` — useful for trusted bulk-write or docs-scraper agents.
 
 ```yaml
       - name: bash
         config:
           require_confirmation: "false"
+      - name: write_to_file
+        config:
+          require_confirmation: "false"
+      - name: delete_file
+        config:
+          require_confirmation: "false"
+          allowed_root: "./systems"
+      - name: browse_url
+        config:
+          require_confirmation: "false"
 ```
 
-> **⚠️ SECURITY WARNING:** Disabling confirmation for the `bash` tool allows the agent to execute arbitrary shell commands on your machine without oversight. Only do this for trusted, read-only sub-agents with strict system prompts. Future versions of this project plan to introduce OS-level sandboxing (e.g., chroot jails or containers) to mitigate this risk.
+> **⚠️ SECURITY WARNING:** Disabling confirmation for `bash` allows arbitrary shell commands without oversight. Disabling it for `write_to_file` lets the agent create/overwrite files freely (still subject to the tool's `force` flag for overwrites). Disabling it for `delete_file` lets the agent remove files within its `allowed_root` without per-file approval (directories and paths outside the root are still refused). Disabling it for `browse_url` lets the agent navigate to web pages in a local browser without per-URL approval. Only do this for trusted agents with strict system prompts. Future versions of this project plan to introduce OS-level sandboxing (e.g., chroot jails or containers) to mitigate this risk.
+
+`delete_file` defaults `allowed_root` to the current working directory. Narrow it per agent when possible, for example `allowed_root: "./systems"` for documentation-maintenance agents.
+
+`browse_url` launches Chromium through chromedp. It is read-only in v1: it navigates, waits for full page load by default (or `domcontentloaded`/`networkidle` when requested), waits an additional 1000ms by default for client-side JavaScript to render (`settle_milliseconds`), extracts rendered HTML, and converts the main content to markdown. It runs visibly by default so the user can watch what the agent is viewing; pass `headless:true` to hide the browser window. The browser session is reused for the life of the running process. It does not click, fill forms, log in, save cookies, or replace `fetch_url` for simple static pages.
+
+Common `browse_url` CLI examples:
+
+```bash
+# Visible browser, full page load, 1000ms JS settle (defaults)
+agents tools execute browse_url 'url:https://example.com/docs'
+
+# Hide the browser window
+agents tools execute browse_url 'url:https://example.com/docs' 'headless:true'
+
+# Give a React/SPA page more time after load before extraction
+agents tools execute browse_url 'url:https://example.com/app-docs' 'settle_milliseconds:2500'
+
+# Wait for a specific element before extracting
+agents tools execute browse_url 'url:https://example.com/docs' 'wait_for_selector:main'
+
+# Use a lighter wait when full load is blocked by analytics or long-polling
+agents tools execute browse_url 'url:https://example.com/docs' 'wait:domcontentloaded'
+```
+
+`firecrawl_fetch` is a hosted single-URL fetch alternative to `browse_url`. It does not crawl a site; the agent should still decide which URLs to fetch.
+
+```bash
+# Fetch one URL and return Firecrawl markdown
+agents tools execute firecrawl_fetch 'url:https://example.com/docs'
+
+# Give Firecrawl more time before capturing a React/SPA page
+agents tools execute firecrawl_fetch 'url:https://example.com/docs' 'wait_milliseconds:2500'
+
+# Also request cleaned HTML
+agents tools execute firecrawl_fetch 'url:https://example.com/docs' 'include_html:true'
+```
 
 #### Provider-executed (server-side) tools
 

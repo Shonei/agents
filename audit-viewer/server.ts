@@ -69,6 +69,21 @@ const dbAll = (query: string, params: any[] = []): Promise<any[]> => {
   });
 };
 
+const parseStringArray = (value: any): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((v) => typeof v === "string");
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((v) => typeof v === "string")
+      : [];
+  } catch {
+    return [];
+  }
+};
+
 // Serve static files and API
 const server = Bun.serve({
   port: PORT,
@@ -189,6 +204,8 @@ const server = Bun.serve({
           responseLines.push({
             id: session.id,
             system_prompt: session.system_prompt,
+            tools: parseStringArray(session.tools),
+            server_tools: parseStringArray(session.server_tools),
           });
 
           // Map events

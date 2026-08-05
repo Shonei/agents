@@ -99,6 +99,7 @@ func (a *Agent) IsRouter() bool {
 type Config struct {
 	GeminiAPIKey     string            `yaml:"gemini_api_key"`
 	OpenRouterAPIKey string            `yaml:"openrouter_api_key"`
+	FirecrawlAPIKey  string            `yaml:"firecrawl_api_key"`
 	GitHubToken      string            `yaml:"github_token"`
 	Agents           map[string]Agent  `yaml:"agents"`
 	AuditConfig      audit.AuditConfig `yaml:"audit"`
@@ -194,6 +195,14 @@ func (c *ConfigFactory) GetOpenRouterAPIKey() string {
 	}
 
 	return c.Config.OpenRouterAPIKey
+}
+
+func (c *ConfigFactory) GetFirecrawlAPIKey() string {
+	if key := os.Getenv("FIRECRAWL_API_KEY"); key != "" {
+		return key
+	}
+
+	return c.Config.FirecrawlAPIKey
 }
 
 func (c *ConfigFactory) GetGitHubToken() string {

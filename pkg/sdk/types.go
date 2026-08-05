@@ -87,6 +87,10 @@ type ResponseContentBlock struct {
 // GroundingMetadata is a provider-agnostic summary of server-side tool
 // activity that accompanies an assistant response.
 type GroundingMetadata struct {
+	// Tools lists the server-side tools that contributed to this grounding
+	// event (e.g. "google_search", "url_context", "web_search", "web_fetch").
+	// Populated by the provider adapter when it can tell which tools ran.
+	Tools            []string          `json:"tools,omitempty"`
 	WebSearchQueries []string          `json:"web_search_queries,omitempty"`
 	Sources          []GroundingSource `json:"sources,omitempty"`
 	RetrievedURLs    []RetrievedURL    `json:"retrieved_urls,omitempty"`

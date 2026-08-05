@@ -18,6 +18,8 @@ interface AuditMessage {
   type: string;
   content?: string;
   system_prompt?: string;
+  tools?: string[];
+  server_tools?: string[];
   function_call?: {
     name: string;
     input: any;
@@ -56,9 +58,33 @@ interface AuditMessage {
 }
 
 interface GroundingMetadata {
+  tools?: string[];
   web_search_queries?: string[];
   sources?: { title?: string; uri?: string; snippet?: string }[];
   retrieved_urls?: { url: string; status?: string }[];
+}
+
+/** Infer server-side tool names for older audits that lack `tools`. */
+function resolveGroundingTools(grounding: GroundingMetadata): string[] {
+  if (grounding.tools && grounding.tools.length > 0) {
+    return grounding.tools;
+  }
+
+  const tools: string[] = [];
+  const queries = grounding.web_search_queries ?? [];
+  const sources = grounding.sources ?? [];
+  const retrieved = grounding.retrieved_urls ?? [];
+
+  if (queries.length > 0 || sources.length > 0) {
+    // Gemini logs google_search; OpenRouter logs web_search. Prefer the
+    // Gemini name when queries are present (Gemini-specific field).
+    tools.push(queries.length > 0 ? "google_search" : "web_search");
+  }
+  if (retrieved.length > 0) {
+    tools.push("url_context");
+  }
+
+  return tools;
 }
 
 // Parsed structure for tool responses
@@ -150,12 +176,14 @@ function App() {
                   {audit.groundingCount && audit.groundingCount > 0 ? (
                     <span
                       className="audit-badge grounding-badge"
-                      title={`${audit.groundingCount} grounding ${
+                      title={`${audit.groundingCount} web-tool ${
                         audit.groundingCount === 1 ? "event" : "events"
-                      }`}
+                      } (google_search / url_context / web_search / web_fetch)`}
                     >
                       <span className="tool-icon">🌐</span>
-                      <span>{audit.groundingCount}</span>
+                      <span>
+                        {audit.groundingCount} web
+                      </span>
                     </span>
                   ) : null}
                 </div>
@@ -211,6 +239,10 @@ function AuditContent({ messages }: { messages: AuditMessage[] }) {
 function MessageBlock({ message, index }: { message: AuditMessage; index: number }) {
   // First message contains system prompt and ID
   if (index === 0 && message.id) {
+    const localTools = message.tools ?? [];
+    const serverTools = message.server_tools ?? [];
+    const hasConfiguredTools = localTools.length > 0 || serverTools.length > 0;
+
     return (
       <div className="message-block system">
         <div className="message-type">System Initialization</div>
@@ -218,6 +250,34 @@ function MessageBlock({ message, index }: { message: AuditMessage; index: number
           <div style={{ marginBottom: "12px", opacity: 0.7 }}>
             <strong>Session ID:</strong> <code>{message.id}</code>
           </div>
+          {hasConfiguredTools && (
+            <div className="configured-tools">
+              {serverTools.length > 0 && (
+                <div className="configured-tool-row">
+                  <span className="configured-tool-label">Provider tools</span>
+                  <div className="grounding-tool-badges">
+                    {serverTools.map((t) => (
+                      <span key={t} className={`grounding-tool-badge tool-${t}`}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {localTools.length > 0 && (
+                <div className="configured-tool-row">
+                  <span className="configured-tool-label">Local tools</span>
+                  <div className="grounding-tool-badges">
+                    {localTools.map((t) => (
+                      <span key={t} className="grounding-tool-badge tool-local">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="markdown">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {message.system_prompt || ""}
@@ -281,25 +341,43 @@ function MessageBlock({ message, index }: { message: AuditMessage; index: number
     return <CompactionBlock summary={message.content || ""} />;
   }
 
-  // Grounding (server-side tool activity, e.g. google_search / url_context).
-  // Newer audits store the payload on `grounding`; older file-mode audits
-  // Plan
+  // Plan / todo shared-state snapshots
   if (message.type === "plan" && message.plan) {
     return <PlanBlock plan={message.plan} />;
   }
 
-  // Todo
   if (message.type === "todo" && message.todo) {
     return <TodoBlock todo={message.todo} />;
   }
 
-  // had it shoehorned into `function_response`.
+  // Server-side web tools (google_search, url_context, web_search, web_fetch).
+  // These never appear as function_call/function_response — only as grounding
+  // events. Newer audits store the payload on `grounding`; older file-mode
+  // audits shoehorned it into `function_response`.
   if (message.type === "grounding") {
     const meta =
-      message.grounding ?? (message.function_response as unknown as GroundingMetadata | undefined);
+      message.grounding ??
+      (message.function_response as unknown as GroundingMetadata | undefined);
     if (meta) {
       return <GroundingBlock grounding={meta} />;
     }
+
+    return (
+      <div className="message-block grounding">
+        <div className="function-header">
+          <div className="message-type">
+            <span className="tool-icon">🌐</span>
+            <span>Web tools</span>
+            <span className="response-meta">no metadata</span>
+          </div>
+        </div>
+        <div className="message-content">
+          <div className="grounding-empty">
+            A web-tool event was logged but no grounding payload was attached.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Fallback for unknown message types
@@ -558,19 +636,34 @@ function CompactionBlock({ summary }: { summary: string }) {
 
 function GroundingBlock({ grounding }: { grounding: GroundingMetadata }) {
   const [collapsed, setCollapsed] = useState(false);
+  const tools = resolveGroundingTools(grounding);
   const queries = grounding.web_search_queries ?? [];
   const sources = grounding.sources ?? [];
   const retrieved = grounding.retrieved_urls ?? [];
   const totalRefs = sources.length + retrieved.length;
+  const toolLabel =
+    tools.length > 0 ? tools.join(" · ") : "server-side web activity";
+  const previewBits: string[] = [];
+  if (queries[0]) {
+    previewBits.push(queries[0]);
+  } else if (retrieved[0]) {
+    previewBits.push(retrieved[0].url);
+  } else if (sources[0]) {
+    previewBits.push(sources[0].title || sources[0].uri || "source");
+  }
 
   return (
     <div className="message-block grounding">
       <div className="function-header">
         <div className="message-type">
           <span className="tool-icon">🌐</span>
-          <span>Grounding</span>
+          <span>
+            Web tools: <strong>{toolLabel}</strong>
+          </span>
           <span className="response-meta">
             {queries.length} {queries.length === 1 ? "query" : "queries"} •{" "}
+            {retrieved.length}{" "}
+            {retrieved.length === 1 ? "URL fetch" : "URL fetches"} •{" "}
             {totalRefs} {totalRefs === 1 ? "reference" : "references"}
           </span>
         </div>
@@ -581,11 +674,28 @@ function GroundingBlock({ grounding }: { grounding: GroundingMetadata }) {
           {collapsed ? "▶ Show" : "▼ Hide"}
         </button>
       </div>
+      {tools.length > 0 && (
+        <div className="grounding-tool-badges">
+          {tools.map((t) => (
+            <span key={t} className={`grounding-tool-badge tool-${t}`}>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      {collapsed && previewBits.length > 0 && (
+        <div className="collapsed-preview">
+          <code>{previewBits[0]}</code>
+        </div>
+      )}
       {!collapsed && (
         <div className="message-content">
           {queries.length > 0 && (
             <div className="grounding-section">
-              <div className="grounding-section-label">Search queries</div>
+              <div className="grounding-section-label">
+                Search queries
+                <span className="grounding-section-tool">google_search / web_search</span>
+              </div>
               <ul className="grounding-queries">
                 {queries.map((q, i) => (
                   <li key={i}>
@@ -595,9 +705,41 @@ function GroundingBlock({ grounding }: { grounding: GroundingMetadata }) {
               </ul>
             </div>
           )}
+          {retrieved.length > 0 && (
+            <div className="grounding-section">
+              <div className="grounding-section-label">
+                Retrieved URLs
+                <span className="grounding-section-tool">url_context / web_fetch</span>
+              </div>
+              <ul className="grounding-sources">
+                {retrieved.map((r, i) => (
+                  <li key={i} className="grounding-source">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="grounding-source-title"
+                    >
+                      {r.url}
+                    </a>
+                    {r.status && (
+                      <span
+                        className={`grounding-status status-${r.status.toLowerCase()}`}
+                      >
+                        {r.status}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {sources.length > 0 && (
             <div className="grounding-section">
-              <div className="grounding-section-label">Sources</div>
+              <div className="grounding-section-label">
+                Sources
+                <span className="grounding-section-tool">grounding citations</span>
+              </div>
               <ul className="grounding-sources">
                 {sources.map((s, i) => (
                   <li key={i} className="grounding-source">
@@ -623,35 +765,11 @@ function GroundingBlock({ grounding }: { grounding: GroundingMetadata }) {
               </ul>
             </div>
           )}
-          {retrieved.length > 0 && (
-            <div className="grounding-section">
-              <div className="grounding-section-label">Retrieved URLs</div>
-              <ul className="grounding-sources">
-                {retrieved.map((r, i) => (
-                  <li key={i} className="grounding-source">
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="grounding-source-title"
-                    >
-                      {r.url}
-                    </a>
-                    {r.status && (
-                      <span className={`grounding-status status-${r.status.toLowerCase()}`}>
-                        {r.status}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           {queries.length === 0 &&
             sources.length === 0 &&
             retrieved.length === 0 && (
               <div className="grounding-empty">
-                No grounding metadata was reported.
+                No grounding metadata was reported for this web-tool turn.
               </div>
             )}
         </div>

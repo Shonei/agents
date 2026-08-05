@@ -103,6 +103,20 @@ func (a *AI) Tools() []AITool {
 	return a.tools
 }
 
+func (a *AI) ConfiguredToolNames() ([]string, []string) {
+	tools := make([]string, 0, len(a.tools))
+	for _, tool := range a.tools {
+		tools = append(tools, tool.Name())
+	}
+
+	serverTools := make([]string, 0, len(a.serverTools))
+	for _, tool := range a.serverTools {
+		serverTools = append(serverTools, tool.Name())
+	}
+
+	return tools, serverTools
+}
+
 func (a *AI) SetHideThinking(hide bool) {
 	a.hideThinking = hide
 }
@@ -120,7 +134,8 @@ func (a *AI) SetMaxTurns(turns int) {
 }
 
 func (a *AI) SetSystemPrompt(prompt string) {
-	a.audit.User(prompt, "")
+	tools, serverTools := a.ConfiguredToolNames()
+	a.audit.User(prompt, "", tools, serverTools)
 
 	a.systemPrompt = prompt
 }
@@ -593,7 +608,11 @@ func printGroundingSummary(g *GroundingMetadata) {
 	header := color.New(color.FgMagenta, color.Bold)
 	body := color.New(color.FgMagenta)
 
-	header.Println("Grounding:")
+	if len(g.Tools) > 0 {
+		header.Printf("Web tools (%s):\n", strings.Join(g.Tools, ", "))
+	} else {
+		header.Println("Web tools:")
+	}
 
 	if len(g.WebSearchQueries) > 0 {
 		body.Printf("  Search queries: %s\n", strings.Join(g.WebSearchQueries, ", "))

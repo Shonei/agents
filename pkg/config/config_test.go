@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetGeminiAPIKey(t *testing.T) {
@@ -243,6 +244,24 @@ func TestNormalizeAndValidateAgents(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReadOrCreateConfigCreatesMissingDir(t *testing.T) {
+	// The config dir must be created traversable, otherwise writing the
+	// config file inside it fails with "permission denied" on first run.
+	path := filepath.Join(t.TempDir(), "agents", "config.yaml")
+
+	config, err := readOrCreateConfig(path)
+	require.NoError(t, err)
+	require.NotNil(t, config)
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), info.Size())
+
+	dirInfo, err := os.Stat(filepath.Dir(path))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
 }
 
 func TestReadOrCreateConfigRunsRouterValidation(t *testing.T) {

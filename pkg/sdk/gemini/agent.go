@@ -179,11 +179,19 @@ func (a *Agent) CreateMessage(request sdk.CreateMessageRequest) (*sdk.MessageRes
 		return nil, fmt.Errorf("failed to convert request: %w", err)
 	}
 
-	geminiRequest.GenerationConfig = &GenerationConfig{
-		MaxOutputTokens:    DefaultMaxTokens,
-		Temperature:        a.temperature,
-		ResponseModalities: a.responseModalities,
+	// Add to the config convertRequest already built rather than replacing it:
+	// replacing it discarded the configured max_tokens and silently capped every
+	// response at DefaultMaxTokens.
+	if geminiRequest.GenerationConfig == nil {
+		geminiRequest.GenerationConfig = &GenerationConfig{}
 	}
+
+	if geminiRequest.GenerationConfig.MaxOutputTokens <= 0 {
+		geminiRequest.GenerationConfig.MaxOutputTokens = DefaultMaxTokens
+	}
+
+	geminiRequest.GenerationConfig.Temperature = a.temperature
+	geminiRequest.GenerationConfig.ResponseModalities = a.responseModalities
 
 	if a.thinkingEnabled {
 		geminiRequest.GenerationConfig.ThinkingConfig = &ThinkingConfig{
@@ -412,11 +420,21 @@ func (a *Agent) convertResponse(resp GenerateContentResponse) (*sdk.MessageRespo
 		Role:    sdk.RoleAssistant,
 		Content: contentBlocks,
 		Model:   a.model,
-		Usage: sdk.Usage{
-			InputTokens:  resp.UsageMetadata.PromptTokenCount,
-			OutputTokens: resp.UsageMetadata.CandidatesTokenCount,
-		},
+		Usage:   usageOf(resp.UsageMetadata),
 	}, nil
+}
+
+// usageOf tolerates a response without usageMetadata: the field is optional on
+// the wire, and losing token counts must degrade compaction rather than panic.
+func usageOf(m *UsageMetadata) sdk.Usage {
+	if m == nil {
+		return sdk.Usage{}
+	}
+
+	return sdk.Usage{
+		InputTokens:  m.PromptTokenCount,
+		OutputTokens: m.CandidatesTokenCount,
+	}
 }
 
 // convertGrounding maps Gemini's groundingMetadata payload onto the

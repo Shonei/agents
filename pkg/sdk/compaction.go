@@ -2,13 +2,23 @@ package sdk
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 
 	"github.com/Shonei/agents/pkg/sdk/audit"
 )
+
+// warnf reports a recoverable problem on stderr. Warnings go to stderr rather
+// than stdout so they stay visible when the agent's own output is piped, and
+// are not suppressed by quiet mode: quiet hides routine progress, not failures.
+func warnf(format string, args ...any) {
+	color.New(color.FgYellow, color.Bold).Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
+}
 
 const (
 	// defaultKeepLastTurns is the number of recent user-text turn boundaries
@@ -16,39 +26,76 @@ const (
 	// gets summarized into a single synthetic message.
 	defaultKeepLastTurns = 2
 
-	// summaryPrefix marks synthetic messages produced by compaction so they
-	// are easy to identify in logs and audits.
-	summaryPrefix = "[Previous conversation summary]\n"
-
 	// maxEvictedBlockChars caps each serialized block when building the
 	// summarizer prompt so a single huge tool result cannot blow the
 	// summarizer's own context budget.
 	maxEvictedBlockChars = 2000
 
-	summarizerSystemPrompt = `You are compacting a coding-agent conversation. Your output REPLACES the prior messages: the same agent (or a peer agent with similar tools) will read it as its only memory of what happened and must be able to resume work without seeing the original. Write for that future agent, not for a human reviewer.
+	// maxUserTextChars caps user messages far more generously than tool output.
+	// A user turn is where constraints live, and the summary is required to
+	// carry them forward — truncating one at the tool-output limit silently
+	// drops the instruction that requirement exists to protect. Pasted specs
+	// routinely exceed 2000 chars.
+	maxUserTextChars = 20000
+
+	// summarizerAttempts is how many times a summarizer call is tried when the
+	// model returns a successful response with no text in it.
+	summarizerAttempts = 3
+
+	// toolResultLabel marks a user-role message that carries only tool output, so
+	// the summarizer does not mistake it for user speech.
+	toolResultLabel = "TOOL_RESULT"
+
+	// priorSummaryLabel introduces the previous rolling summary in the
+	// compaction summarizer's input, so successive passes merge rather than
+	// re-derive it. Re-summarizing a summary degrades it on every pass.
+	priorSummaryLabel = "PRIOR SUMMARY (your own earlier note, covering still older turns):"
+
+	// compactionSystemPrompt drives compaction: the SAME agent continues, with
+	// its system prompt, tools and task unchanged. The output is that agent's
+	// own memory of work it did, so it is written in the first person and must
+	// not contain instructions — a directive here reads as a fresh work order
+	// and makes the agent restart instead of continue. Contrast
+	// handoffSystemPrompt, which briefs a different agent.
+	compactionSystemPrompt = `You are the same coding agent whose conversation this is. Older turns are being dropped to free up context; what you write here replaces them and becomes your own memory of that work — including your memory of what the user asked for. Your system prompt and tools are unchanged and still present, so do not restate your role or your capabilities. Write in the first person, past tense.
 
 Use these labeled sections, in this order. Omit a label only if it would be empty. No other headings, no preamble, no closing remarks.
 
-GOAL: The user's original request and any constraints they imposed (libraries to use or avoid, files off-limits, style or acceptance criteria). Quote constraints verbatim when wording matters.
-PROGRESS: What has been completed, in order, with the concrete artifact for each step (file path, symbol name, command, value). Mark anything still in flight as "in progress".
-FILES: Paths read, created, modified, or deleted, each with a one-phrase note on the change.
-KEY FINDINGS: Facts learned from tool output that future steps depend on — symbol locations, API shapes, schema fields, exact error messages, exit codes, configuration values. Preserve identifiers, numbers, paths, and error strings verbatim.
-DEAD ENDS: Approaches tried and abandoned, with the reason, so they are not retried.
-NEXT: The single most immediate action the agent should take, specific enough to act on without further inference. Then any other pending work.
+ASKED: What the user wants, and every constraint they imposed — libraries to use or avoid, files or directories off-limits, style or acceptance criteria, choices they overruled. Quote their wording verbatim whenever it carries a constraint. Include instructions they gave part-way through, not just the first thing they said; a later instruction supersedes an earlier one, and if the two conflict, record both and say which came last. This section is your memory of what you were told, not an instruction you are issuing — write it as "The user asked me to…", "They said not to…".
+DID: What you completed, in order, each with its concrete artifact (file path, symbol name, command, value). Past tense: "I changed…", "I ran…". Mark anything unfinished as still open.
+FILES: Paths you read, created, modified, or deleted, each with a one-phrase note on the change.
+LEARNED: Facts from tool output that later work depends on — symbol locations, API shapes, schema fields, exact error messages, exit codes, configuration values. Preserve identifiers, numbers, paths, and error strings verbatim.
+RULED OUT: Approaches you tried and abandoned, with the reason, so you do not retry them.
+OPEN: What you were in the middle of, phrased as your own state ("I was partway through…"), not as an instruction to anyone.
 
 Rules:
 - Never invent facts. If a detail is not in the source, omit it rather than guess.
 - Preserve file paths, symbol names, command strings, and error messages byte-for-byte.
-- Lines prefixed with "(thinking)" are the prior agent's internal reasoning; use them to infer intent but do not treat them as ground truth.
-- Lines under a "TOOL_RESULT:" role are tool output, not user speech; attribute them accordingly.
-- Drop pleasantries, restated context, and prose around tool output; keep the load-bearing details inside it.
-- Target under ~600 words. If you must cut, cut from PROGRESS before GOAL or NEXT.`
+- Do not issue instructions, plans, or next actions, and do not address anyone. You are recording what happened; the conversation continues after this note.
+- Lines prefixed with "(thinking)" are your own earlier reasoning; use them to recall intent, but do not treat them as established fact.
+- Lines under a "TOOL_RESULT:" role are tool output, not user speech.
+- If the input opens with a PRIOR SUMMARY block, that is your own earlier note covering older turns: fold it into your answer and carry its facts forward rather than dropping or re-deriving them.
+- Target under ~600 words. If you must cut, cut from DID before ASKED, LEARNED or OPEN. Never drop a constraint to save space.`
 )
 
+// summarizerRetryDelay is the pause between summarizer attempts. A variable
+// rather than a constant so tests can drive the retry path without sleeping.
+var summarizerRetryDelay = 500 * time.Millisecond
+
+// errCompactionUnproductive reports that a compaction pass was computed but
+// discarded because it would not have shrunk the history. Distinguished from a
+// plain "nothing to do" so the caller can stop paying for further attempts.
+var errCompactionUnproductive = errors.New("compaction would not shrink the history")
+
 // maybeCompact inspects the most recent input-token count against the agent's
-// configured context budget and, if exceeded, rewrites messages in place to
-// replace the older prefix with a single synthetic summary message. Returns
-// true when compaction actually happened.
+// configured context budget and, if exceeded, rewrites messages in place.
+// Returns true when compaction actually happened.
+//
+// The rebuilt history is [pinned original request, assistant summary, tail].
+// The original request is pinned because it is the only turn that establishes
+// whose goal this is, and the summary is spoken by the assistant because it is
+// the agent's own memory — injecting it as a user turn makes the next turn read
+// as a fresh instruction and the agent restarts instead of continuing.
 func (a *AI) maybeCompact(messages *[]InputMessage) (bool, error) {
 	budget := a.agent.MaxContextTokens()
 	if budget <= 0 || a.lastInputTokens <= 0 {
@@ -59,36 +106,42 @@ func (a *AI) maybeCompact(messages *[]InputMessage) (bool, error) {
 		return false, nil
 	}
 
-	cut := -1
+	pinned, body := a.splitCompactionHead(*messages)
+
 	keepLastTurns := a.agent.MaxContextTurns()
 	if keepLastTurns <= 0 {
 		keepLastTurns = defaultKeepLastTurns
 	}
 
-	for keep := keepLastTurns; keep >= 1; keep-- {
-		cut = findCompactionCut(*messages, keep)
-		if cut > 0 {
-			break
-		}
-	}
-
+	cut := computeCompactionCut(body, keepLastTurns)
 	if cut <= 0 {
-		// Either no safe cut point exists yet, or the entire history is
-		// already within the "keep" window. Nothing we can safely evict.
+		// Either no safe cut point exists yet, or the whole body is already
+		// within the "keep" window. Nothing we can safely evict.
 		return false, nil
 	}
 
-	toEvict := (*messages)[:cut]
-	tail := (*messages)[cut:]
+	toEvict := body[:cut]
+	tail := body[cut:]
 
 	color.New(color.FgYellow, color.Bold).Printf(
 		"Compacting conversation: %d tokens > %d budget, summarizing %d/%d messages\n",
 		a.lastInputTokens, budget, len(toEvict), len(*messages),
 	)
 
-	summary, err := a.SummarizeMessages(toEvict)
+	summary, err := a.SummarizeForCompaction(a.rollingSummary, toEvict)
 	if err != nil {
 		return false, fmt.Errorf("compaction summary failed: %w", err)
+	}
+
+	rebuilt := buildCompacted(pinned, summary, tail)
+
+	// A compaction that does not shrink the history is worse than none: it costs
+	// a summarizer call, loses the evicted detail, and leaves the request even
+	// larger than before. Discard it, and report it as an error so the caller
+	// stops attempting compaction for the rest of the turn — the input has not
+	// changed, so retrying only repeats the summarizer spend.
+	if before, after := charSize(*messages), charSize(rebuilt); after >= before {
+		return false, fmt.Errorf("%w (%d -> %d chars)", errCompactionUnproductive, before, after)
 	}
 
 	a.audit.LogEvent(audit.Event{
@@ -96,12 +149,147 @@ func (a *AI) maybeCompact(messages *[]InputMessage) (bool, error) {
 		Content: summary,
 	})
 
-	rebuilt := make([]InputMessage, 0, 1+len(tail))
-	rebuilt = append(rebuilt, NewTextMessage(RoleUser, summaryPrefix+summary))
-	rebuilt = append(rebuilt, tail...)
+	a.commitCompactionHead(len(pinned), summary)
 	*messages = rebuilt
 
 	return true, nil
+}
+
+// charSize is a cheap proxy for how large a history will be on the wire. Only
+// used to compare two versions of the same conversation, so consistency matters
+// more than accuracy — but it must not be blind to any block that dominates a
+// real history, or the shrink guard rejects rebuilds that genuinely help.
+func charSize(messages []InputMessage) int {
+	total := 0
+
+	for _, msg := range messages {
+		switch v := msg.Content.(type) {
+		case string:
+			total += len(v)
+		case []ContentBlock:
+			for _, b := range v {
+				total += blockCharSize(b)
+			}
+		}
+	}
+
+	return total
+}
+
+func blockCharSize(b ContentBlock) int {
+	total := len(b.Text)
+
+	// Base64 image data is by far the largest thing a history can carry, and
+	// images are retained in history indefinitely. Missing it made the shrink
+	// guard measure a multi-megabyte conversation as a few dozen chars.
+	if b.Source != nil {
+		total += len(b.Source.Data)
+	}
+
+	switch c := b.Content.(type) {
+	case nil:
+	case string:
+		total += len(c)
+	default:
+		if out, err := json.Marshal(c); err == nil {
+			total += len(out)
+		}
+	}
+
+	if b.Input != nil {
+		if input, err := json.Marshal(b.Input); err == nil {
+			total += len(input)
+		}
+	}
+
+	return total
+}
+
+// splitCompactionHead separates the part of the history compaction owns (the
+// pinned original request and the previous summary message) from the body that
+// is eligible for eviction.
+//
+// On a first pass it pins messages[0] when that is a plain user text message.
+// On later passes it re-uses the head it built last time, after checking the
+// history still starts with it — a router handing control back to a sub-agent
+// resets that agent's history, so stale head state has to be detected and
+// dropped rather than trusted.
+func (a *AI) splitCompactionHead(messages []InputMessage) (pinned, body []InputMessage) {
+	if a.headHeight > 0 && a.headMatches(messages) {
+		// The summary occupies the last slot of the head; everything before it
+		// is the pinned request.
+		return messages[:a.headHeight-1], messages[a.headHeight:]
+	}
+
+	a.rollingSummary = ""
+	a.headHeight = 0
+
+	if len(messages) > 0 && isUserTextBoundary(messages[0]) {
+		return messages[:1], messages[1:]
+	}
+
+	return nil, messages
+}
+
+// headMatches reports whether the history still begins with the head this AI
+// installed on its last compaction pass.
+func (a *AI) headMatches(messages []InputMessage) bool {
+	if len(messages) < a.headHeight {
+		return false
+	}
+
+	summaryMsg := messages[a.headHeight-1]
+	if summaryMsg.Role != RoleAssistant {
+		return false
+	}
+
+	text, ok := summaryMsg.Content.(string)
+
+	return ok && text == a.rollingSummary
+}
+
+// buildCompacted assembles the post-compaction history. Pure: the caller commits
+// the head state separately, so a rebuild can be inspected and discarded without
+// leaving the AI believing it installed a head it did not.
+func buildCompacted(pinned []InputMessage, summary string, tail []InputMessage) []InputMessage {
+	rebuilt := make([]InputMessage, 0, len(pinned)+1+len(tail))
+	rebuilt = append(rebuilt, pinned...)
+	rebuilt = append(rebuilt, NewTextMessage(RoleAssistant, summary))
+	rebuilt = append(rebuilt, tail...)
+
+	return rebuilt
+}
+
+// commitCompactionHead records the head that was just installed so the next pass
+// merges into it instead of re-summarizing it.
+func (a *AI) commitCompactionHead(pinnedCount int, summary string) {
+	a.rollingSummary = summary
+	a.headHeight = pinnedCount + 1
+}
+
+// computeCompactionCut finds the largest safe cut that still preserves
+// keepLastTurns boundaries, relaxing the requirement down to one boundary when
+// the history is not yet long enough.
+//
+// When no boundary-based cut exists it falls back to evicting the whole body.
+// That matters for the case compaction most needs to handle: a single enormous
+// tool result at the end of the history is never a boundary (nothing follows it
+// to keep), so boundary search alone can only ever evict the small messages in
+// front of it — growing the prompt instead of shrinking it. Evicting everything
+// is structurally safe because it leaves no tail to orphan, and the agent still
+// keeps its pinned request plus the summary.
+func computeCompactionCut(body []InputMessage, keepLastTurns int) int {
+	for keep := keepLastTurns; keep >= 1; keep-- {
+		if cut := findCompactionCut(body, keep); cut > 0 {
+			return cut
+		}
+	}
+
+	if len(body) > 0 {
+		return len(body)
+	}
+
+	return -1
 }
 
 // findCompactionCut walks backwards through messages looking for clean turn
@@ -168,8 +356,10 @@ func isToolResultBoundary(messages []InputMessage, i int) bool {
 
 // isUserTextBoundary reports whether a message is a "fresh" user message
 // (plain text, no tool_result blocks) that can safely act as a cut point.
-// Synthetic summary messages produced by compaction are excluded so they
-// can be re-summarized in later compaction passes.
+//
+// Compaction summaries no longer need excluding here: they are assistant
+// messages, and they sit in the head that splitCompactionHead keeps out of the
+// eviction range entirely.
 func isUserTextBoundary(msg InputMessage) bool {
 	if msg.Role != RoleUser {
 		return false
@@ -177,10 +367,6 @@ func isUserTextBoundary(msg InputMessage) bool {
 
 	switch v := msg.Content.(type) {
 	case string:
-		if strings.HasPrefix(v, summaryPrefix) {
-			return false
-		}
-
 		return true
 	case []ContentBlock:
 		for _, b := range v {
@@ -195,31 +381,79 @@ func isUserTextBoundary(msg InputMessage) bool {
 	}
 }
 
-// SummarizeMessages asks the underlying agent to produce a plain-prose
-// summary of the given messages. Used both by the in-AI compaction loop
-// and by RouterAI when generating a handoff summary. The call uses the
-// same model but with no tools and a dedicated system prompt.
-func (a *AI) SummarizeMessages(toEvict []InputMessage) (string, error) {
-	serialized := serializeForSummary(toEvict)
+// SummarizeForCompaction produces the same agent's first-person memory of the
+// evicted turns. prior is the rolling summary from an earlier compaction pass,
+// if any; it is folded in rather than re-summarized so its facts only degrade
+// once.
+func (a *AI) SummarizeForCompaction(prior string, toEvict []InputMessage) (string, error) {
+	input := serializeForSummary(toEvict)
+	if prior != "" {
+		input = priorSummaryLabel + "\n" + prior + "\n\n" + input
+	}
 
+	return a.summarize(compactionSystemPrompt, input)
+}
+
+// SummarizeForHandoff produces a briefing for a different agent taking over the
+// work, which must re-establish the goal and constraints from scratch.
+func (a *AI) SummarizeForHandoff(history []InputMessage) (string, error) {
+	return a.summarize(handoffSystemPrompt, serializeForSummary(history))
+}
+
+// summarize runs a one-shot, tool-free completion against the agent's model
+// using the given system prompt.
+//
+// A successful call that carries no text is retried: models intermittently
+// return an empty candidate, and a summary is the one thing the caller cannot
+// synthesize a fallback for. Transport errors are not retried here — the
+// provider layer already retries the retryable ones, so a failure that reaches
+// this point is unlikely to clear on an immediate second attempt.
+func (a *AI) summarize(systemPrompt, input string) (string, error) {
 	req := CreateMessageRequest{
-		System: summarizerSystemPrompt,
+		System: systemPrompt,
 		Messages: []InputMessage{
-			NewTextMessage(RoleUser, serialized),
+			NewTextMessage(RoleUser, input),
 		},
 	}
 
-	resp, err := a.agent.CreateMessage(req)
-	if err != nil {
-		return "", err
+	var lastErr error
+
+	for attempt := 1; attempt <= summarizerAttempts; attempt++ {
+		if attempt > 1 && summarizerRetryDelay > 0 {
+			time.Sleep(summarizerRetryDelay)
+		}
+
+		resp, err := a.agent.CreateMessage(req)
+		if err != nil {
+			return "", err
+		}
+
+		if summary := strings.TrimSpace(resp.GetTextContent()); summary != "" {
+			return summary, nil
+		}
+
+		lastErr = emptySummaryError(resp)
 	}
 
-	summary := strings.TrimSpace(resp.GetTextContent())
-	if summary == "" {
-		return "", fmt.Errorf("summarizer returned no text content")
+	return "", fmt.Errorf("summarizer returned no text after %d attempts: %w", summarizerAttempts, lastErr)
+}
+
+// emptySummaryError describes what a text-free response did contain. A response
+// carrying only thinking blocks ("spent its budget reasoning") and one carrying
+// nothing at all ("the call was rejected") need different fixes, so the
+// distinction is worth surfacing.
+func emptySummaryError(resp *MessageResponse) error {
+	kinds := make([]string, 0, len(resp.Content))
+	for _, b := range resp.Content {
+		kinds = append(kinds, fmt.Sprintf("%s(%d chars)", b.Type, len(b.Text)))
 	}
 
-	return summary, nil
+	if len(kinds) == 0 {
+		kinds = append(kinds, "no content blocks")
+	}
+
+	return fmt.Errorf("no text content: %s, %d input / %d output tokens",
+		strings.Join(kinds, ", "), resp.Usage.InputTokens, resp.Usage.OutputTokens)
 }
 
 // serializeForSummary renders a slice of messages into a compact text form
@@ -236,7 +470,7 @@ func serializeForSummary(messages []InputMessage) string {
 
 		switch v := msg.Content.(type) {
 		case string:
-			writeTruncated(&b, v)
+			writeTruncatedTo(&b, v, textLimitFor(msg))
 			b.WriteString("\n")
 		case []ContentBlock:
 			for _, block := range v {
@@ -267,7 +501,7 @@ func roleLabel(msg InputMessage) string {
 			}
 
 			if allToolResults {
-				return "TOOL_RESULT"
+				return toolResultLabel
 			}
 		}
 	}
@@ -290,7 +524,15 @@ func writeBlock(b *strings.Builder, block ContentBlock) {
 		writeTruncated(b, string(input))
 		b.WriteString(")\n")
 	case ContentTypeToolResult:
-		fmt.Fprintf(b, "tool_result for %s: ", block.ToolUseID)
+		// The error flag has to survive: without it a failed call serializes
+		// identically to a successful one, and the summary records the attempt
+		// as work done rather than as a dead end.
+		status := ""
+		if block.IsError {
+			status = " [ERROR]"
+		}
+
+		fmt.Fprintf(b, "tool_result for %s%s: ", block.ToolUseID, status)
 
 		switch c := block.Content.(type) {
 		case string:
@@ -302,17 +544,40 @@ func writeBlock(b *strings.Builder, block ContentBlock) {
 
 		b.WriteString("\n")
 	case ContentTypeImage:
+		// The bytes are useless to a text summarizer, but the path is the
+		// agent's only handle on a file it generated.
+		if block.FilePath != "" {
+			fmt.Fprintf(b, "(image saved to %s)\n", block.FilePath)
+
+			return
+		}
+
 		b.WriteString("(image omitted)\n")
 	}
 }
 
 func writeTruncated(b *strings.Builder, s string) {
-	if len(s) <= maxEvictedBlockChars {
+	writeTruncatedTo(b, s, maxEvictedBlockChars)
+}
+
+func writeTruncatedTo(b *strings.Builder, s string, limit int) {
+	if len(s) <= limit {
 		b.WriteString(s)
 
 		return
 	}
 
-	b.WriteString(s[:maxEvictedBlockChars])
-	fmt.Fprintf(b, "... [truncated %d chars]", len(s)-maxEvictedBlockChars)
+	b.WriteString(s[:limit])
+	fmt.Fprintf(b, "... [truncated %d chars]", len(s)-limit)
+}
+
+// textLimitFor returns how much of a plain-text message to keep. Genuine user
+// speech gets the generous limit; a user message that only carries tool_result
+// blocks is tool output wearing the user role and gets the tool limit.
+func textLimitFor(msg InputMessage) int {
+	if msg.Role == RoleUser && roleLabel(msg) != toolResultLabel {
+		return maxUserTextChars
+	}
+
+	return maxEvictedBlockChars
 }

@@ -14,9 +14,33 @@ import (
 )
 
 // handoffPrefix marks the synthetic user message injected at the head of
-// a sub-agent's working history when control changes hands. Mirrors the
-// summaryPrefix convention used by in-AI compaction.
+// a sub-agent's working history when control changes hands.
 const handoffPrefix = "[Handoff from %s]\n"
+
+// handoffSystemPrompt drives a router handoff: a DIFFERENT agent takes over,
+// with its own system prompt, its own tools, and none of this conversation. It
+// therefore has to re-establish the goal and constraints from scratch, and a
+// directive ("do this next") is correct here — it is a briefing, not a memory.
+// Contrast compactionSystemPrompt, where the same agent continues.
+const handoffSystemPrompt = `You are briefing a different agent that is taking over this work. It has its own system prompt, its own tools, and none of this conversation: what you write is the only thing it will know about what came before. Write for that agent, not for a human reviewer.
+
+Use these labeled sections, in this order. Omit a label only if it would be empty. No other headings, no preamble, no closing remarks.
+
+GOAL: The user's original request and any constraints they imposed (libraries to use or avoid, files off-limits, style or acceptance criteria). Quote constraints verbatim when wording matters.
+PROGRESS: What has been completed, in order, with the concrete artifact for each step (file path, symbol name, command, value). Mark anything still in flight as "in progress".
+FILES: Paths read, created, modified, or deleted, each with a one-phrase note on the change.
+KEY FINDINGS: Facts learned from tool output that future steps depend on — symbol locations, API shapes, schema fields, exact error messages, exit codes, configuration values. Preserve identifiers, numbers, paths, and error strings verbatim.
+DEAD ENDS: Approaches tried and abandoned, with the reason, so they are not retried.
+NEXT: The single most immediate action the incoming agent should take, specific enough to act on without further inference. Then any other pending work.
+
+Rules:
+- Never invent facts. If a detail is not in the source, omit it rather than guess.
+- Preserve file paths, symbol names, command strings, and error messages byte-for-byte.
+- If a shared plan was recorded via the plan tool, reference it rather than restating it — the incoming agent reads the same plan state, and two descriptions of the work can disagree.
+- Lines prefixed with "(thinking)" are the outgoing agent's internal reasoning; use them to infer intent but do not treat them as ground truth.
+- Lines under a "TOOL_RESULT:" role are tool output, not user speech; attribute them accordingly.
+- Drop pleasantries, restated context, and prose around tool output; keep the load-bearing details inside it.
+- Target under ~600 words. If you must cut, cut from PROGRESS before GOAL or NEXT.`
 
 // RouteMeta is the runtime view of a single configured route. Kept in
 // the order declared in YAML so the classifier sees them deterministically.
@@ -243,7 +267,7 @@ func (r *RouterAI) handoff(pick RouteSelection) error {
 
 	summary := ""
 	if len(r.history) > 0 {
-		s, err := prev.SummarizeMessages(r.history)
+		s, err := prev.SummarizeForHandoff(r.history)
 		if err != nil {
 			return fmt.Errorf("handoff %s->%s: summarization failed: %w", from, toRoute, err)
 		}

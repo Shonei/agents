@@ -64,9 +64,26 @@ func IsBinaryFile(path string) (bool, error) {
 	}
 	defer f.Close()
 
+	return sniffBinary(f)
+}
+
+// isBinaryFileInRoot is the root-scoped counterpart of IsBinaryFile, used while
+// walking a directory so a symlink cannot redirect the read outside the root.
+func isBinaryFileInRoot(root *os.Root, name string) (bool, error) {
+	f, err := root.Open(name)
+	if err != nil {
+		return false, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	return sniffBinary(f)
+}
+
+// sniffBinary applies the NUL-byte heuristic to an already-open file.
+func sniffBinary(r io.Reader) (bool, error) {
 	buf := make([]byte, binarySniffSize)
 
-	n, err := f.Read(buf)
+	n, err := r.Read(buf)
 	if err != nil && err != io.EOF {
 		return false, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -88,8 +105,17 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 		}
 	}
 
+	// Reads inside the walk go through a root handle rather than the absolute
+	// path, so a symlink swapped in mid-walk cannot redirect a read outside the
+	// directory being collected.
+	root, err := os.OpenRoot(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %w", fullPath, err)
+	}
+	defer root.Close()
+
 	files := make([]File, 0, 128)
-	err := filepath.WalkDir(fullPath, func(path string, entry fs.DirEntry, err error) error {
+	err = filepath.WalkDir(fullPath, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -118,6 +144,14 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 			return nil
 		}
 
+		// Symlinks are skipped rather than followed. Following them risks
+		// pulling in content from outside the collected tree, duplicating a
+		// target that is walked anyway, or looping; the root handle below then
+		// only has to defend against a link swapped in mid-walk.
+		if entry.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+
 		rel, relErr := filepath.Rel(fullPath, path)
 		if relErr != nil {
 			return relErr
@@ -129,7 +163,7 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 			return nil
 		}
 
-		isBin, binErr := IsBinaryFile(path)
+		isBin, binErr := isBinaryFileInRoot(root, rel)
 		if binErr != nil {
 			return fmt.Errorf("failed to detect binary file %s: %w", path, binErr)
 		}
@@ -138,7 +172,7 @@ func CollectFiles(fullPath string, dryRun bool) ([]File, error) {
 			return nil
 		}
 
-		b, readErr := os.ReadFile(path)
+		b, readErr := root.ReadFile(rel)
 		if readErr != nil {
 			return fmt.Errorf("failed to read file %s: %w", path, readErr)
 		}
